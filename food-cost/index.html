@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="es-PE">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Food Cost – Control de costos de ventas y operaciones</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#182920;background:#f4f7f4;--green:#176247;--line:#dbe5de;--muted:#52665b}
+*{box-sizing:border-box}body{margin:0}header{background:#103f30;color:white;padding:28px 0 22px}main,.wrap,nav{width:min(1200px,94%);margin:auto}h1{margin:0;font-size:clamp(1.8rem,4vw,3rem);letter-spacing:-.045em}header p{margin:2px 0 22px;color:#d7eee1}
+.config{display:flex;align-items:center;flex-wrap:wrap;gap:16px 30px}.config label{display:flex;align-items:center;gap:8px}.config input[type=number]{width:78px}
+nav{display:flex;gap:6px;overflow:auto;padding:14px 0}button,select,input{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:white;color:#204534;border-radius:8px;padding:8px 12px}button[aria-selected=true],button.primary{background:var(--green);color:white;border-color:var(--green)}nav button{white-space:nowrap}button.danger{color:#a12626}
+main{padding-bottom:36px}.card{background:white;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(157px,1fr));gap:10px;margin-bottom:14px}.metric{background:white;border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}.metric strong{display:block;font-size:1.3rem;margin-top:4px;overflow-wrap:anywhere}.muted,small{color:var(--muted)}h2{font-size:1.13rem;margin:0 0 10px}p{margin:7px 0 12px}.scroll{overflow:auto}table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}th,td{text-align:left;padding:9px 8px;border-bottom:1px solid #e9efea;white-space:nowrap}th{font-size:.78rem;color:var(--muted);background:#f5f8f5}tr:last-child td{border-bottom:0}input:not([type=checkbox]),select{border:1px solid #c9d8ce;border-radius:7px;background:white;color:#182920;padding:7px 8px;max-width:100%}input[type=number]{width:100px}input[type=text]{width:175px}input:invalid{border-color:#bb3535}input[type=checkbox]{accent-color:#24875d}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #408eef;outline-offset:2px}.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}.row label{display:grid;gap:4px}.pill{display:inline-block;border-radius:99px;padding:4px 9px;font-size:.82rem;font-weight:650}.good{color:#116044;background:#e3f6eb}.warn{color:#805400;background:#fff1c9}.bad{color:#9b2626;background:#fce7e5}.neutral{color:#52665b;background:#eef2ef}.alert ol{margin:8px 0 0;padding-left:24px}.barline{display:grid;grid-template-columns:minmax(90px,160px) 1fr 110px;align-items:center;gap:10px;margin-top:12px}.track{position:relative;background:#edf2ee;height:16px;border-radius:5px}.bar{height:100%;border-radius:5px}.bar.good{background:#25835b}.bar.warn{background:#e3a62e}.bar.bad{background:#c64a42}.marker{position:absolute;top:-3px;bottom:-3px;width:2px;background:#14362b}.neg{color:#a12626;font-weight:700}.pos{color:#176247}.foot{font-size:.83rem;color:var(--muted)}[hidden]{display:none!important}
+@media(max-width:560px){.card{padding:13px}.barline{grid-template-columns:95px 1fr 80px;gap:5px;font-size:.8rem}.pill{padding:3px 6px}.config{gap:10px}}
+</style>
+<header><div class="wrap">
+<h1>Food Cost</h1><p>Control de costos de ventas y operaciones</p>
+<div class="config" id="config" hidden>
+<label>Meta de Food Cost <input type="number" id="goal" min="0.01" max="100" step="any"> %</label>
+<label><input type="checkbox" id="tax"> Precios incluyen IGV (18%)</label>
+</div></div></header>
+<main id="login-box">
+<div class="card" style="margin-top:18px">
+<h2>Acceso del equipo PYC</h2>
+<form id="login"><div class="row">
+<label>Correo <input name="email" type="email" autocomplete="username" required></label>
+<label>Contraseña <input name="password" type="password" autocomplete="current-password" required></label>
+</div><button class="primary" type="submit">Ingresar</button></form>
+<p id="login-status" role="status"></p>
+</div></main>
+<nav hidden role="tablist" aria-label="Secciones">
+<button role="tab" id="tab-summary" aria-controls="summary" data-tab="summary">Resumen</button>
+<button role="tab" id="tab-stock" aria-controls="stock" data-tab="stock">Insumos</button>
+<button role="tab" id="tab-recipes" aria-controls="recipes" data-tab="recipes">Recetas</button>
+<button role="tab" id="tab-sales" aria-controls="sales" data-tab="sales">Ventas y consumo real</button>
+</nav>
+<main id="app" hidden>
+<div class="row"><button id="sync">Guardar ahora</button><button id="reload-state">Actualizar datos</button><button id="logout">Cerrar sesión</button></div>
+<section role="tabpanel" id="summary" aria-labelledby="tab-summary"></section>
+<section role="tabpanel" id="stock" aria-labelledby="tab-stock" hidden></section>
+<section role="tabpanel" id="recipes" aria-labelledby="tab-recipes" hidden></section>
+<section role="tabpanel" id="sales" aria-labelledby="tab-sales" hidden></section>
+<p class="foot" id="saveState" role="status"></p>
+</main>
+<script>
+'use strict';
+
+const $ = id => document.getElementById(id);
+const api = 'https://atwizqlhyfqdfedwjvzj.supabase.co';
+const publicKey = 'sb_publishable_M92WNKoQh2xM146O-RkOrg_8nU_CC-T';
+const measures = {
+  kg: {small:'g', factor:1000},
+  L: {small:'ml', factor:1000},
+  und: {small:'und', factor:1}
+};
+const format = decimals => new Intl.NumberFormat('es-PE', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+const num = (value, decimals=2) => Number.isFinite(value) ? format(decimals).format(value) : '—';
+const money = value => Number.isFinite(value) ? 'S/ ' + num(value) : '—';
+const percent = value => Number.isFinite(value) ? num(value) + ' %' : '—';
+const signed = (value, decimals=2) => value > 0 ? '+' + num(value, decimals) : num(value, decimals);
+const escape = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const options = (entries, selected) => entries.map(([id, label]) =>
+  '<option value="' + escape(id) + '"' + (id === selected ? ' selected' : '') + '>' + escape(label) + '</option>'
+).join('');
+const total = values => values.reduce((sum, value) => sum + value, 0);
+const ratio = (a,b) => b > 0 ? 100 * a / b : null;
+const roundPrice = value => Math.ceil((value - 1e-10) * 100) / 100;
+
+function sample() {
+  const items = [
+    ['Lomo de res','kg',47,10],['Cebolla roja','kg',3.2,12],['Tomate','kg',4.8,8],
+    ['Papa amarilla','kg',4.8,18],['Arroz','kg',4.3,0],['Aceite vegetal','L',8.9,0],
+    ['Sillao','L',10.8,0],['Pescado blanco','kg',31,15],['Jugo de limón','L',13,0],
+    ['Ají limo','kg',15,12],['Camote','kg',3.5,14],['Choclo desgranado','kg',6.8,0],
+    ['Pechuga de pollo','kg',15.5,9],['Ají amarillo','kg',10,17],
+    ['Leche evaporada','L',10,0],['Maíz morado','kg',7.8,2]
+  ].map(([name, unit, cost, waste], i) => ({id:'i'+i, name, unit, cost, waste, start:0, buys:0, end:0}));
+  const dishes = [
+    ['Lomo saltado',39.9,42,[[0,180],[1,70],[2,65],[3,170],[4,70],[5,35],[6,20]]],
+    ['Ceviche clásico',36.9,35,[[7,220],[1,55],[8,90],[9,7],[10,100],[11,60]]],
+    ['Ají de gallina',27.9,30,[[12,175],[14,100],[13,32],[4,70],[3,120],[5,18]]],
+    ['Chicha morada',8.9,55,[[15,105],[8,15]]]
+  ].map(([name, price, sold, ingredients], i) => ({
+    id:'r'+i, name, price, sold,
+    lines:ingredients.map(([item, qty], j) => ({id:'l'+j, item:'i'+item, qty}))
+  }));
+  for (const [i, item] of items.entries()) {
+    const expected = total(dishes.map(dish => total(dish.lines.filter(line => line.item === item.id)
+      .map(line => dish.sold * line.qty / measures[item.unit].factor / (1 - item.waste / 100)))));
+    const extra = [1.1,0.4,0,0.3,0,0.4,0,0.9,0.2,0,0,0,0.7,0,0,0][i];
+    item.start = Number((expected * .45 + .5).toFixed(3));
+    item.buys = Number((expected * .8 + extra).toFixed(3));
+    item.end = Number((item.start + item.buys - expected - extra).toFixed(3));
+  }
+  return {goal:30, tax:true, items, dishes, serial:100};
+}
+
+let state, selected, session, revision, timer;
+let active = 'summary';
+let dirty = false;
+let writing = false;
+let blocked = false;
+
+const notice = message => $('saveState').textContent = message;
+
+async function request(path, method='GET', body, withSession=true) {
+  const headers = {apikey:publicKey, 'Content-Type':'application/json'};
+  if (withSession && session) headers.Authorization = 'Bearer ' + session.access_token;
+  if (method === 'PATCH') headers.Prefer = 'return=representation';
+  const response = await fetch(api + path, {
+    method, headers, body:body === undefined ? undefined : JSON.stringify(body)
+  });
+  if (!response.ok) throw new Error(String(response.status));
+  return response.json();
+}
+
+async function renew() {
+  if (session.expiresAt > Date.now() + 60000) return;
+  const tokens = await request('/auth/v1/token?grant_type=refresh_token','POST',
+    {refresh_token:session.refresh_token},false);
+  session = {...tokens, expiresAt:Date.now()+tokens.expires_in*1000};
+}
+
+async function loadShared() {
+  await renew();
+  const rows = await request('/rest/v1/food_cost_state?id=eq.1&select=payload,revision');
+  if (!rows.length) return false;
+  revision = rows[0].revision;
+  state = rows[0].payload ?? sample();
+  selected = state.dishes[0]?.id;
+  $('goal').value = state.goal;
+  $('tax').checked = state.tax;
+  dirty = false;
+  blocked = false;
+  activate('summary');
+  notice(rows[0].payload ? 'Datos actualizados desde Supabase.' : 'Datos de ejemplo. La primera edición se guardará en Supabase.');
+  return true;
+}
+
+function save() {
+  dirty = true;
+  if (blocked) return;
+  notice('Cambios pendientes de guardar…');
+  clearTimeout(timer);
+  timer = setTimeout(flush,650);
+}
+
+async function flush() {
+  if (!dirty || writing || blocked || !session) return;
+  clearTimeout(timer);
+  writing = true;
+  dirty = false;
+  const payload = structuredClone(state);
+  let allowedToContinue = false;
+  notice('Guardando en Supabase…');
+  try {
+    await renew();
+    const rows = await request('/rest/v1/food_cost_state?id=eq.1&revision=eq.'+revision+'&select=revision',
+      'PATCH',{payload,revision:revision+1});
+    if (!rows.length) {
+      blocked = true;
+      dirty = true;
+      notice('No se guardó. Otra persona actualizó los datos o tu acceso cambió. Anota tus cambios y usa Actualizar datos.');
+      return;
+    }
+    revision = rows[0].revision;
+    allowedToContinue = true;
+    if (!dirty) notice('Cambios guardados en Supabase.');
+  } catch {
+    dirty = true;
+    notice('No se pudo guardar. Verifica la conexión y pulsa Guardar ahora.');
+  } finally {
+    writing = false;
+    if (dirty && allowedToContinue) save();
+  }
+}
+
+function showApp(show) {
+  $('login-box').hidden = show;
+  $('config').hidden = !show;
+  document.querySelector('nav').hidden = !show;
+  $('app').hidden = !show;
+}
+
+$('login').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const button = event.submitter;
+  button.disabled = true;
+  const form = event.currentTarget;
+  const details = new FormData(form);
+  const status = $('login-status');
+  status.textContent = 'Verificando acceso…';
+  try {
+    const tokens = await request('/auth/v1/token?grant_type=password','POST',
+      {email:details.get('email'),password:details.get('password')},false);
+    session = {...tokens,expiresAt:Date.now()+tokens.expires_in*1000};
+    form.reset();
+    if (!await loadShared()) {
+      session = undefined;
+      status.textContent = 'Tu cuenta todavía no tiene acceso al espacio de PYC.';
+      return;
+    }
+    status.textContent = '';
+    showApp(true);
+  } catch (error) {
+    session = undefined;
+    status.textContent = error.message === '400' || error.message === '401'
+      ? 'Revisa tu correo, contraseña y confirmación de cuenta.' : 'No se pudo conectar con Supabase.';
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$('sync').addEventListener('click',flush);
+$('reload-state').addEventListener('click',async event=>{
+  if (writing || (dirty && !confirm('¿Descartar los cambios pendientes y cargar los datos de Supabase?'))) return;
+  clearTimeout(timer);
+  const button = event.currentTarget;
+  const controls = [$('config'),document.querySelector('nav'),...document.querySelectorAll('[role=tabpanel]')];
+  controls.forEach(control=>control.inert=true);
+  button.disabled = $('sync').disabled = $('logout').disabled = true;
+  try {
+    if (!await loadShared()) notice('Tu cuenta ya no tiene acceso a los datos.');
+  } catch {
+    notice('No se pudo actualizar. Los cambios siguen en esta página.');
+  } finally {
+    controls.forEach(control=>control.inert=false);
+    button.disabled = $('sync').disabled = $('logout').disabled = false;
+  }
+});
+
+$('logout').addEventListener('click',async event=>{
+  if (writing) return;
+  if (dirty && !confirm('¿Cerrar sesión y descartar los cambios pendientes?')) return;
+  clearTimeout(timer);
+  const token = session.access_token;
+  session = state = undefined;
+  dirty = blocked = false;
+  showApp(false);
+  document.querySelectorAll('[role=tabpanel]').forEach(panel=>panel.replaceChildren());
+  try {
+    await fetch(api+'/auth/v1/logout?scope=local',{method:'POST',
+      headers:{apikey:publicKey, Authorization:'Bearer '+token}});
+  } catch {}
+});
+
+window.addEventListener('beforeunload',event=>{
+  if (dirty || writing) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+});
+
+function calculate() {
+  const taxFactor = state.tax ? 1.18 : 1;
+  const items = Object.fromEntries(state.items.map(item => [item.id, {
+    ...item, yieldRate:1 - item.waste / 100, usable:item.cost / (1 - item.waste / 100),
+    theo:0, real:item.start + item.buys - item.end
+  }]));
+  const dishes = state.dishes.map(dish => {
+    const net = dish.price / taxFactor;
+    const lines = dish.lines.map(line => {
+      const item = items[line.item];
+      const usableQty = line.qty / measures[item.unit].factor;
+      item.theo += dish.sold * usableQty / item.yieldRate;
+      return {...line, cost:usableQty * item.usable, unit:measures[item.unit].small};
+    });
+    const cost = total(lines.map(line => line.cost));
+    return {...dish, lines, net, cost, fc:ratio(cost,net), margin:net-cost,
+      suggested:roundPrice(cost / (state.goal / 100) * taxFactor)};
+  });
+  for (const item of Object.values(items)) {
+    const difference = item.real - item.theo;
+    item.diff = Math.abs(difference) < 1e-9 ? 0 : difference;
+    item.loss = item.diff * item.cost;
+  }
+  const sales = total(dishes.map(dish => dish.sold * dish.net));
+  const theoretical = total(dishes.map(dish => dish.sold * dish.cost));
+  const actual = total(Object.values(items).map(item => item.real * item.cost));
+  const inconsistent = Object.values(items).some(item => item.real < -1e-9);
+  return {items,dishes,sales,theoretical,actual,inconsistent, fcTheo:ratio(theoretical,sales),
+    fcActual:inconsistent ? null : ratio(actual,sales), delta:inconsistent ? null : ratio(actual-theoretical,sales)};
+}
+
+const field = (path, value, label, type='number', max='', min=0) =>
+  `<input type="${type}" aria-label="${escape(label)}" data-path="${path}" value="${escape(value)}"${type === 'number' ? ` min="${min}" step="any"${max === '' ? '' : ` max="${max}"`}` : ''}>`;
+const action = (name,label,index='',css='') => `<button type="button" data-action="${name}" data-index="${index}" class="${css}">${label}</button>`;
+const cell = id => `<span id="${id}"></span>`;
+const table = (headers, rows) => `<div class="scroll"><table><thead><tr>${headers.map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(td=>`<td>${td}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+const metric = (label, value) => `<div class="metric"><small>${label}</small><strong>${value}</strong></div>`;
+const itemName = item => item.name || 'Insumo sin nombre';
+const dishName = dish => dish.name || 'Plato sin nombre';
+const empty = message => `<p class="muted">${message}</p>`;
+
+function renderStock() {
+  $('stock').innerHTML = `<div class="card"><div class="row"><h2>Insumos</h2>${action('addItem','+ Agregar insumo','','primary')}</div>
+    <p class="muted">Registra el costo de compra sin IGV por kg, litro o unidad. Costo aprovechable = costo de compra ÷ (1 − merma).</p>
+    ${state.items.length ? table(['Nombre','Unidad de compra','Costo sin IGV (S/)','Merma (%)','Costo aprovechable','Acción'],
+    state.items.map((item,i)=>[
+      field('items.'+i+'.name',item.name,'Nombre del insumo','text'),
+      `<select aria-label="Unidad de compra" data-path="items.${i}.unit">${options([['kg','kg'],['L','L'],['und','und']],item.unit)}</select>`,
+      field('items.'+i+'.cost',item.cost,'Costo de compra de '+itemName(item)),
+      field('items.'+i+'.waste',item.waste,'Merma de '+itemName(item),'number',99.99),
+      cell('usable-'+i),action('deleteItem','Eliminar',i,'danger')
+    ])) : empty('Agrega un insumo para empezar.')}</div>`;
+}
+
+function renderRecipes() {
+  const index = state.dishes.findIndex(dish=>dish.id===selected);
+  const dish = state.dishes[index];
+  $('recipes').innerHTML = `<div class="card"><h2>Recetas por porción</h2><div class="row">
+    ${dish ? `<select id="recipe-select" aria-label="Seleccionar receta">${options(state.dishes.map(d=>[d.id,dishName(d)]),selected)}</select>` : ''}
+    ${action('addDish','+ Crear receta','','primary')}${dish ? action('deleteDish','Eliminar receta',index,'danger') : ''}</div>
+    ${dish ? `<div class="row">
+    <label>Nombre ${field('dishes.'+index+'.name',dish.name,'Nombre de la receta','text')}</label>
+    <label>Precio de venta (S/) ${field('dishes.'+index+'.price',dish.price,'Precio de venta')}</label></div>
+    <div id="recipe-kpis" class="grid"></div>
+    <p class="muted">Ingresa la cantidad aprovechable por porción. El costo incorpora la merma de cada insumo.</p>
+    ${dish.lines.length ? table(['Insumo','Cantidad por porción','Unidad','Costo','% del costo','Acción'],dish.lines.map((line,j)=>[
+      `<select aria-label="Ingrediente ${j+1}" data-path="dishes.${index}.lines.${j}.item">${options(state.items.map(i=>[i.id,itemName(i)]),line.item)}</select>`,
+      field('dishes.'+index+'.lines.'+j+'.qty',line.qty,'Cantidad del ingrediente '+(j+1)),
+      cell('unit-'+j),cell('cost-'+j),cell('share-'+j),action('deleteLine','Quitar',j,'danger')
+    ])) : empty('La receta todavía no tiene ingredientes.')}
+    <div class="row" style="margin-top:12px">${state.items.length ? action('addLine','+ Agregar ingrediente') : empty('Crea primero un insumo en la pestaña Insumos.')}</div>` : empty('Crea una receta para costear un plato.')}</div>`;
+}
+
+function renderSales() {
+  $('sales').innerHTML = `<div class="card"><h2>Ventas del período</h2>
+    ${state.dishes.length ? table(['Plato','Unidades vendidas','Ventas netas'],state.dishes.map((dish,i)=>[
+      escape(dishName(dish)),field('dishes.'+i+'.sold',dish.sold,'Unidades vendidas de '+dishName(dish)),cell('sales-'+i)
+    ])) : empty('Crea una receta para registrar ventas.')}</div>
+    <div class="card"><h2>Inventario y consumo por insumo</h2>
+    <p class="muted">Usa el mismo período para ventas, compras e inventario. Una diferencia positiva indica exceso de consumo.</p>
+    <div id="inventory-warning"></div>
+    ${state.items.length ? table(['Insumo','Unidad','Inventario inicial','Compras','Inventario final','Real','Teórico con merma','Diferencia','Diferencia (S/)'],
+      state.items.map((item,i)=>[
+        escape(itemName(item)),item.unit,
+        ...[['start','Inventario inicial'],['buys','Compras'],['end','Inventario final']].map(([fieldName,label])=>
+          field('items.'+i+'.'+fieldName,item[fieldName],label+' de '+itemName(item))),
+        ...['real','theo','diff','loss'].map(name=>cell(name+'-'+i))
+      ])) : empty('Agrega insumos para registrar inventario.')}</div>`;
+}
+
+function status(fc) {
+  if (fc === null) return ['neutral','Sin precio'];
+  if (fc <= state.goal + 1e-9) return ['good','En meta'];
+  if (fc <= state.goal + 3 + 1e-9) return ['warn','Sobre meta'];
+  return ['bad','Fuera de meta'];
+}
+
+function renderSummary(data) {
+  const {dishes, items, sales, actual, inconsistent, fcTheo, fcActual, delta} = data;
+  const top = Object.values(items).filter(item=>item.loss > 0 && item.real >= 0)
+    .sort((a,b)=>b.loss-a.loss).slice(0,3);
+  const high = delta !== null && delta > 1 + 1e-9;
+  const gross = inconsistent ? null : sales-actual;
+  const max = Math.max(40,state.goal * 1.1,...dishes.map(d=>d.fc || 0));
+  let alert = 'El FC real no supera al teórico por más de 1 punto porcentual.';
+  if (high) alert = 'El FC real supera al teórico por más de 1 punto porcentual.';
+  if (delta === null) alert = inconsistent ? 'Revisa el inventario: hay insumos con consumo real negativo.'
+    : 'Registra ventas con precio para comparar el FC real y teórico.';
+  $('summary').innerHTML = `<div class="card alert ${high || inconsistent ? 'bad' : delta === null ? 'neutral' : 'good'}">
+    <h2>${alert}</h2>
+    ${top.length ? `<div>Mayores excesos de consumo valorizados</div><ol>${top.map(item=>`<li>${escape(itemName(item))} · ${money(item.loss)}</li>`).join('')}</ol>`
+      : '<div>No hay excesos de consumo valorizados.</div>'}
+    </div>
+    <div class="grid">
+      ${metric('Ventas netas',money(sales))}
+      ${metric('FC teórico',percent(fcTheo))}
+      ${metric('FC real',percent(fcActual))}
+      ${metric('Desviación real vs teórico',delta === null ? '—' : signed(delta)+' pp')}
+      ${metric('Margen bruto real',money(gross)+(sales > 0 && gross !== null ? ` <small>(${percent(ratio(gross,sales))})</small>` : ''))}
+    </div>
+    <div class="card"><h2>Food cost por plato</h2><p class="muted">Línea vertical · Meta ${percent(state.goal)}</p>
+    ${dishes.map(dish=>{
+      const [color,label] = status(dish.fc);
+      return `<div class="barline"><div>${escape(dishName(dish))}</div>
+      <div class="track" aria-hidden="true"><div class="bar ${color}" style="width:${100*(dish.fc||0)/max}%"></div><div class="marker" style="left:${100*state.goal/max}%"></div></div>
+      <span class="pill ${color}" title="${label}">${percent(dish.fc)}${dish.fc === null ? ' Sin precio' : ''}</span></div>`;
+    }).join('') || empty('Agrega una receta para comparar su costo con la meta.')}</div>
+    <div class="card"><h2>Detalle por plato</h2><p class="muted">El precio sugerido ${state.tax ? 'incluye el IGV' : 'se expresa sin IGV'} y se redondea hacia arriba al céntimo.</p>
+    ${dishes.length ? table(['Plato','Vendidos','Precio de venta','Precio neto','Costo por porción','FC teórico','Estado','Precio sugerido'],dishes.map(dish=>{
+      const [color,label] = status(dish.fc);
+      return [escape(dishName(dish)),num(dish.sold,Number.isInteger(dish.sold)?0:2),money(dish.price),money(dish.net),
+        money(dish.cost),percent(dish.fc),`<span class="pill ${color}">${label}</span>`,money(dish.suggested)];
+    })) : empty('Todavía no hay platos registrados.')}</div>`;
+}
+
+function refresh() {
+  const data = calculate();
+  if (active === 'summary') { renderSummary(data); return; }
+  if (active === 'stock') {
+    state.items.forEach((item,i)=>$('usable-'+i).textContent = money(data.items[item.id].usable)+' / '+item.unit);
+    return;
+  }
+  if (active === 'recipes') {
+    const dish = data.dishes.find(d=>d.id===selected);
+    if (!dish) return;
+    $('recipe-select').selectedOptions[0].textContent = dishName(dish);
+    $('recipe-kpis').innerHTML = [
+      metric('Costo por porción',money(dish.cost)),metric('Precio neto',money(dish.net)),
+      metric('Food cost',percent(dish.fc)),metric('Margen por porción',money(dish.margin) +
+        (dish.net > 0 ? ` <small>(${percent(ratio(dish.margin,dish.net))})</small>` : '')),
+      metric(state.tax ? 'Precio sugerido con IGV' : 'Precio sugerido sin IGV',money(dish.suggested))
+    ].join('');
+    dish.lines.forEach((line,i)=>{
+      $('unit-'+i).textContent = line.unit;
+      $('cost-'+i).textContent = money(line.cost);
+      $('share-'+i).textContent = percent(ratio(line.cost,dish.cost));
+    });
+    return;
+  }
+  $('inventory-warning').innerHTML = data.inconsistent
+    ? '<p class="neg">Hay inventarios finales superiores al inicial más las compras. Corrige los consumos negativos para calcular el FC real.</p>' : '';
+  data.dishes.forEach((dish,i)=>$('sales-'+i).textContent = money(dish.sold*dish.net));
+  state.items.forEach((item,i)=>{
+    const row = data.items[item.id];
+    $('real-'+i).textContent = num(row.real,3);
+    $('real-'+i).className = row.real < -1e-9 ? 'neg' : '';
+    $('theo-'+i).textContent = num(row.theo,3);
+    $('diff-'+i).textContent = signed(row.diff,3);
+    $('loss-'+i).textContent = (row.loss > 0 ? '+' : '')+money(row.loss);
+    $('diff-'+i).className = $('loss-'+i).className = row.diff > 0 ? 'neg' : row.diff < 0 ? 'pos' : '';
+  });
+}
+
+function renderActive() {
+  if (active === 'stock') renderStock();
+  if (active === 'recipes') renderRecipes();
+  if (active === 'sales') renderSales();
+  refresh();
+}
+
+function activate(tab) {
+  active = tab;
+  document.querySelectorAll('[data-tab]').forEach(button=>{
+    const on = button.dataset.tab === tab;
+    button.setAttribute('aria-selected',on);
+    button.tabIndex = on ? 0 : -1;
+    $(button.dataset.tab).hidden = !on;
+  });
+  renderActive();
+}
+
+function edit(input) {
+  const path = input.dataset.path?.split('.') || [input.id];
+  const property = path.pop();
+  const owner = path.reduce((object,part)=>object[part],state);
+  let value = input.value;
+  if (input.type === 'number') {
+    if (!input.validity.valid) return;
+    value = input.value === '' ? 0 : input.valueAsNumber;
+    if (property === 'goal' && value <= 0) return;
+  }
+  if (input.type === 'checkbox') value = input.checked;
+  if (property === 'unit' && owner.unit !== value) {
+    const used = owner.start || owner.buys || owner.end ||
+      state.dishes.some(dish=>dish.lines.some(line=>line.item===owner.id));
+    if (used && !confirm('Este cambio mantiene los valores numéricos y cambia su unidad. Revisa el costo, las cantidades de receta y el inventario. ¿Continuar?')) {
+      input.value = owner.unit;
+      return;
+    }
+  }
+  owner[property] = value;
+  save();
+  refresh();
+}
+
+document.addEventListener('input',event=>{
+  if (event.target.matches('input[data-path], #goal, #tax')) edit(event.target);
+});
+document.addEventListener('change',event=>{
+  const input = event.target;
+  if (input.id === 'recipe-select') {
+    selected = input.value;
+    renderActive();
+    $('recipe-select').focus();
+  } else if (input.matches('select[data-path]')) edit(input);
+});
+document.addEventListener('focusout',event=>{
+  const input = event.target;
+  if (!input.matches('input[type=number]')) return;
+  if (input.validity.valid && input.value !== '') return;
+  const path = input.dataset.path?.split('.') || [input.id];
+  input.value = path.reduce((object,part)=>object[part],state);
+});
+
+document.querySelector('nav').addEventListener('keydown',event=>{
+  const buttons = [...document.querySelectorAll('[data-tab]')];
+  const index = buttons.indexOf(event.target);
+  if (index < 0 || !['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+  event.preventDefault();
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length-1 :
+    (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+  activate(buttons[next].dataset.tab);
+  buttons[next].focus();
+});
+
+document.addEventListener('click',event=>{
+  const button = event.target.closest('button');
+  if (!button || !state) return;
+  if (button.dataset.tab) { activate(button.dataset.tab); return; }
+  const dish = state.dishes.find(d=>d.id===selected);
+  const index = Number(button.dataset.index);
+  switch (button.dataset.action) {
+    case 'addItem':
+      state.items.push({id:'i'+state.serial++,name:'Nuevo insumo',unit:'kg',cost:0,waste:0,start:0,buys:0,end:0});
+      break;
+    case 'deleteItem': {
+      const item = state.items[index];
+      const references = state.dishes.filter(d=>d.lines.some(line=>line.item===item.id)).length;
+      const impact = references ? ` También se quitará de ${references} receta(s).` : '';
+      if (!confirm('¿Eliminar «'+itemName(item)+'» y sus datos de inventario?'+impact)) return;
+      state.items.splice(index,1);
+      state.dishes.forEach(d=>{d.lines=d.lines.filter(line=>line.item!==item.id);});
+      break;
+    }
+    case 'addDish':
+      selected = 'r'+state.serial++;
+      state.dishes.push({id:selected,name:'Nueva receta',price:0,sold:0,lines:[]});
+      break;
+    case 'deleteDish':
+      if (!confirm('¿Eliminar «'+dishName(dish)+'» y sus unidades vendidas?')) return;
+      state.dishes.splice(index,1);
+      selected = state.dishes[Math.min(index,state.dishes.length-1)]?.id;
+      break;
+    case 'addLine':
+      dish.lines.push({id:'l'+state.serial++,item:state.items[0].id,qty:0});
+      break;
+    case 'deleteLine':
+      dish.lines.splice(index,1);
+      break;
+    default: return;
+  }
+  save();
+  renderActive();
+});
+
+
+</script>
+</html>

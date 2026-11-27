@@ -68,9 +68,9 @@
 </div>
 </section>
 <section class="view" id="view-settings" aria-labelledby="goalsTitle">
-<div class="panel"><div class="panelhead"><h2 id="goalsTitle">Metas quincenales por negocio</h2></div>
+<div class="panel"><div class="panelhead"><h2 id="goalsTitle">Metas por negocio</h2></div>
 <form id="goalsForm" style="padding:16px">
-<div class="scroll"><table class="listing" style="min-width:440px"><thead><tr><th scope="col">Negocio</th><th scope="col">Historias</th><th scope="col">Posts</th><th scope="col">Reels</th></tr></thead><tbody id="goalsFields"></tbody></table></div>
+<div class="scroll"><table class="listing" style="min-width:440px"><thead><tr><th scope="col">Negocio</th><th scope="col">Historias por día</th><th scope="col">Posts por quincena</th><th scope="col">Reels por quincena</th></tr></thead><tbody id="goalsFields"></tbody></table></div>
 <div class="actions" style="margin-top:16px"><button class="btn primary" id="saveGoals" type="submit">Guardar metas</button><button class="btn" id="reloadGoals" type="button">Recargar metas</button></div>
 <p id="goalsStatus" role="status"></p>
 </form></div></section></main></div>
@@ -266,20 +266,50 @@ function fortnightUnits(from, until) {
     fraction(last,last.start,Date.parse(until));
 }
 
-function publicationGoals(records, units, format, targets) {
+function dailyStoryGoal(targets) {
+  return [1,2,3].includes(targets.HistoriaDiaria) ? targets.HistoriaDiaria : 1;
+}
+function dailyStoryBreakdown(records, from, until, goal) {
+  const byDate = new Map();
+  for (const item of records) {
+    if (item.type === 'Historia' && item.status === 'planned') {
+      byDate.set(item.date,(byDate.get(item.date)||0)+1);
+    }
+  }
+  const rows = [];
+  let covered = 0;
+  let credited = 0;
+  for (let time = Date.parse(from); time <= Date.parse(until); time += 86400000) {
+    const date = new Date(time).toISOString().slice(0,10);
+    const planned = byDate.get(date) || 0;
+    const missing = Math.max(0,goal-planned);
+    if (!missing) covered++;
+    credited += Math.min(goal,planned);
+    rows.push([friendly(date),goal,planned,missing,missing ? 'Pendiente' : 'Cumplida']);
+  }
+  return {rows,covered,credited};
+}
+function publicationGoals(records, units, format, targets, daily) {
   const planned = {Historia:0,Post:0,Reel:0};
   for (const item of records) if (item.status === 'planned') planned[item.type]++;
   return GOAL_FORMATS.filter(([type]) => format === 'all' || format === type).map(([type,label]) => {
-    const goal = Math.ceil(Math.round(targets[type]*units*1e9)/1e9);
-    return [label,goal,planned[type],Math.max(0,goal-planned[type]),
-      goal ? Math.round(planned[type]/goal*100)+'%' : '—'];
+    const isStory = type === 'Historia';
+    const goal = isStory ? daily.rows.length*dailyStoryGoal(targets) : Math.ceil(Math.round(targets[type]*units*1e9)/1e9);
+    const credited = isStory ? daily.credited : planned[type];
+    return [label,goal,planned[type],Math.max(0,goal-credited),
+      goal ? Math.round(credited/goal*100)+'%' : '—'];
   });
 }
 
 function renderGoalFields() {
   $('goalsFields').innerHTML = BRANDS.map(brand=>'<tr><th scope="row">'+esc(brand)+'</th>'+
-    GOAL_FORMATS.map(([type,label])=>'<td class="field" style="display:table-cell"><input type="number" required min="0" step="1" max="1000000" id="goal'+brand+type+'" aria-label="'+esc(label+' de '+brand)+'" value="'+
-      esc(goalsState?.targets[brand]?.[type] ?? '')+'" '+(!canEditGoals || !goalsState ? 'disabled' : '')+'></td>').join('')+'</tr>').join('');
+    GOAL_FORMATS.map(([type,label])=>{
+      const input = '<input type="number" required step="1" id="goal'+brand+type+'" aria-label="'+esc(label+' de '+brand)+'" ';
+      const limits = type==='Historia' ? 'min="1" max="3"' : 'min="0" max="1000000"';
+      const targets = goalsState?.targets[brand];
+      const value = !targets ? '' : type==='Historia' ? dailyStoryGoal(targets) : targets[type];
+      return '<td class="field" style="display:table-cell">'+input+limits+' value="'+esc(value)+'" '+(!canEditGoals || !goalsState ? 'disabled' : '')+'></td>';
+    }).join('')+'</tr>').join('');
   $('saveGoals').disabled = !canEditGoals || !goalsState;
 }
 
@@ -312,7 +342,7 @@ $('goalsForm').addEventListener('submit',async event=>{
   if (pending || !canEditGoals || !goalsState) return;
   const expected = goalsEditRevision ?? goalsState.revision;
   if (expected !== goalsState.revision) return;
-  const targets = Object.fromEntries(BRANDS.map(brand=>[brand,Object.fromEntries(GOAL_FORMATS.map(([type])=>[type,$('goal'+brand+type).valueAsNumber]))]));
+  const targets = Object.fromEntries(BRANDS.map(brand=>[brand,{...goalsState.targets[brand],...Object.fromEntries(GOAL_FORMATS.map(([type])=>[type==='Historia'?'HistoriaDiaria':type,$('goal'+brand+type).valueAsNumber]))}]));
   setPending(true);
   try {
     const {data,error} = await db.from('social_planner_goals').update({targets,revision:expected+1})
@@ -358,10 +388,16 @@ function renderIndicators() {
     $('publicationGoals').innerHTML = businesses.map(brand=>{
       const scheduled = items.filter(item => item.date >= from && item.date <= until &&
         match(item,{...filtersForReport,brand,status:'all'}));
-      const rows = publicationGoals(scheduled,units,filtersForReport.type,goalsState.targets[brand]);
+      const targets = goalsState.targets[brand];
+      const includesStories = ['all','Historia'].includes(filtersForReport.type);
+      const daily = includesStories ? dailyStoryBreakdown(scheduled,from,until,dailyStoryGoal(targets)) : null;
+      const rows = publicationGoals(scheduled,units,filtersForReport.type,targets,daily);
+      const detail = daily ? '<p class="subtitle" style="margin:0 0 12px">'+daily.covered+' de '+daily.rows.length+
+        ' días cumplieron la meta de historias. Los excedentes de un día no cubren otros días.</p>'+
+        indicatorTable('Historias por día · '+brand,['Fecha','Meta diaria','Programadas','Faltan programar','Cumplimiento'],daily.rows) : '';
       return indicatorTable('Cuánto falta programar · '+brand,
-        ['Formato','Meta','Programados','Faltan programar','Avance'],rows);
-    }).join('')+'<p class="subtitle" style="margin:0 0 16px">Avance = programados ÷ meta. Las quincenas parciales se prorratean por días y la meta se redondea hacia arriba.</p>';
+        ['Formato','Meta','Programados','Faltan programar','Avance'],rows)+detail;
+    }).join('')+'<p class="subtitle" style="margin:0 0 16px">Las metas de posts y reels se prorratean en quincenas parciales y se redondean hacia arriba.</p>';
   } else {
     $('publicationGoals').textContent = 'Metas no disponibles. Abre Configuración y pulsa Recargar metas.';
   }

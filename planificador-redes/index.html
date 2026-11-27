@@ -36,7 +36,7 @@
 <p id="plannerLoginStatus" role="status" style="margin:12px 0 0"></p>
 </section>
 <div id="plannerApp" class="hidden">
-<div class="shell"><aside class="side"><div class="logo">PYC <span style="color:#f2ae6b">&</span> CHORIPIZZA<small>Marketing Studio</small></div><nav style="display:contents"><button class="navbtn active" data-view="matrix"><span>▦</span> Matriz editorial</button><button class="navbtn" data-view="calendar"><span>▤</span> Calendario</button><button class="navbtn" data-view="list"><span>☷</span> Publicaciones</button><button class="navbtn" data-view="indicators"><span aria-hidden="true">▥</span> Indicadores</button><button class="navbtn" data-view="images">▧ Imágenes</button><button class="navbtn" data-view="owners"><span>♙</span> Responsables</button></nav><div class="sidefooter">El calendario se guarda en Supabase y se sincroniza entre los equipos con acceso. Exporta una copia JSON si quieres conservar un respaldo. La publicación en redes sociales se realiza por separado.</div></aside><main class="main"><header class="top"><div><div class="eyebrow">Gestión de contenido · 2 negocios · 4 redes sociales</div><h1>Planificador de redes sociales</h1><p class="subtitle">Organiza historias, posts y reels en una sola vista.</p></div><div class="actions"><button type="button" class="btn hidden" id="plannerBringLocal">Recuperar registros de este navegador</button>
+<div class="shell"><aside class="side"><div class="logo">PYC <span style="color:#f2ae6b">&</span> CHORIPIZZA<small>Marketing Studio</small></div><nav style="display:contents"><button class="navbtn active" data-view="matrix"><span>▦</span> Matriz editorial</button><button class="navbtn" data-view="calendar"><span>▤</span> Calendario</button><button class="navbtn" data-view="list"><span>☷</span> Publicaciones</button><button class="navbtn" data-view="indicators"><span aria-hidden="true">▥</span> Indicadores</button><button class="navbtn" data-view="images">▧ Imágenes</button><button class="navbtn" data-view="owners"><span>♙</span> Responsables</button><button class="navbtn" data-view="settings">⚙ Configuración</button></nav><div class="sidefooter">El calendario se guarda en Supabase y se sincroniza entre los equipos con acceso. Exporta una copia JSON si quieres conservar un respaldo. La publicación en redes sociales se realiza por separado.</div></aside><main class="main"><header class="top"><div><div class="eyebrow">Gestión de contenido · 2 negocios · 4 redes sociales</div><h1>Planificador de redes sociales</h1><p class="subtitle">Organiza historias, posts y reels en una sola vista.</p></div><div class="actions"><button type="button" class="btn hidden" id="plannerBringLocal">Recuperar registros de este navegador</button>
 <button type="button" class="btn" id="plannerRefresh">Actualizar calendario</button>
 <button type="button" class="btn" id="plannerSignOut">Cerrar sesión</button><button class="btn" id="exportJSON">↓ Respaldo JSON</button><button class="btn" id="importJSON">↑ Importar</button><button class="btn" id="exportCSV">↓ CSV</button><button class="btn primary" id="newPost">＋ Nueva publicación</button><input type="file" accept=".json,application/json" id="fileImport" class="hidden"></div></header>
 <section class="toolbar" id="planningToolbar"><div class="field"><label>Negocio</label><select id="filterBrand"><option value="all">Ambos negocios</option><option>PYC</option><option>Choripizza</option></select></div><div class="field"><label>Red social</label><select id="filterPlatform"><option value="all">Todas las redes</option><option>Facebook</option><option>Instagram</option><option>WhatsApp</option><option>TikTok</option></select></div><div class="field"><label>Formato</label><select id="filterType"><option value="all">Todos los formatos</option><option>Historia</option><option>Post</option><option>Reel</option></select></div><div class="field"><label>Estado</label><select id="filterStatus"><option value="all">Todos los estados</option><option value="planned">Programado</option><option value="draft">Pendiente de aprobación</option></select></div><div class="date-nav"><button class="btn" id="prevPeriod" title="Periodo anterior">‹</button><strong id="dateTitle">14–30 nov 2026</strong><button class="btn" id="nextPeriod" title="Periodo siguiente">›</button><button class="btn" id="nowPeriod">Quincena actual</button></div><button class="btn" id="clearFilters">Limpiar filtros</button></section>
@@ -66,7 +66,14 @@
 <div id="publicationGoals"></div><div class="cards" id="indicatorCards"></div>
 <div id="indicatorTables"></div>
 </div>
-</section></main></div>
+</section>
+<section class="view" id="view-settings" aria-labelledby="goalsTitle">
+<div class="panel"><div class="panelhead"><h2 id="goalsTitle">Metas quincenales por negocio</h2></div>
+<form id="goalsForm" style="padding:16px">
+<div class="scroll"><table class="listing" style="min-width:440px"><thead><tr><th scope="col">Negocio</th><th scope="col">Historias</th><th scope="col">Posts</th><th scope="col">Reels</th></tr></thead><tbody id="goalsFields"></tbody></table></div>
+<div class="actions" style="margin-top:16px"><button class="btn primary" id="saveGoals" type="submit">Guardar metas</button><button class="btn" id="reloadGoals" type="button">Recargar metas</button></div>
+<p id="goalsStatus" role="status"></p>
+</form></div></section></main></div>
 <div class="backdrop" id="backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h2 id="modalTitle">Nueva publicación</h2><p>Completa la ficha editorial y elige el estado.</p><form id="editor"><input type="hidden" id="editId"><div class="formgrid"><div class="field"><label for="editBrand">Negocio *</label><select id="editBrand" required><option>PYC</option><option>Choripizza</option></select></div><div class="field"><label for="editPlatform">Red social *</label><select id="editPlatform" required><option>Facebook</option><option>Instagram</option><option>WhatsApp</option><option>TikTok</option></select></div><div class="field"><label for="editType">Formato *</label><select id="editType" required><option>Historia</option><option>Post</option><option>Reel</option></select></div><label class="story-replica wide hidden" id="storyReplicaOption"><input type="checkbox" id="storyReplica" disabled><span id="storyReplicaText"></span></label><div class="field"><label for="editStatus">Estado *</label><select id="editStatus" required><option value="planned">Programado</option><option value="draft">Pendiente de aprobación</option></select></div><div class="field"><label for="editDate">Fecha *</label><div class="date-entry"><input type="text" id="editDate" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10" required><span class="date-icon" aria-hidden="true">▦</span><input type="date" id="editDatePicker" aria-label="Abrir calendario de publicación"></div></div><div class="field"><label for="editTime">Hora de publicación</label><input type="time" id="editTime"></div><div class="field wide"><label for="editTitle">Tema / título *</label><input maxlength="130" id="editTitle" placeholder="Ej.: Promo 2x1 en pizzas medianas" required></div><div class="field wide"><label for="editCopy">Texto / copy</label><textarea id="editCopy" rows="3" placeholder="Mensaje, llamado a la acción, hashtags..."></textarea></div><div class="field"><label for="editOwner">Responsable</label><select id="editOwner"><option value="">Sin asignar</option></select></div><div class="field"><label for="editObjective">Objetivo</label><select id="editObjective"><option value="">Sin definir</option><option>Alcance</option><option>Interacción</option><option>Ventas</option><option>Mensajes</option><option>Tráfico</option><option>Seguidores</option></select></div><div class="field wide"><label for="editAsset">Enlace a material creativo</label><input id="editAsset" type="url" placeholder="https://drive.google.com/... (opcional)"></div><div class="field wide"><strong>Adjuntar imágenes</strong>
 <label for="editImageSource">Origen de las imágenes</label>
 <select id="editImageSource"><option value="">Seleccionar origen</option><option value="device">Desde este equipo</option><option value="library">Desde la biblioteca interna</option></select>
@@ -189,10 +196,10 @@ if (activeView==='matrix' && nextView!=='matrix') {
   [periodStart,periodEnd]=matrixRange;
 }
 activeView=nextView;
-$('planningToolbar').classList.toggle('hidden',activeView==='images');
-$('planningSummary').classList.toggle('hidden',activeView==='images');
+$('planningToolbar').classList.toggle('hidden',['images','settings'].includes(activeView));
+$('planningSummary').classList.toggle('hidden',['images','settings'].includes(activeView));
 $('nowPeriod').textContent=activeView==='matrix'?'Quincena actual':'Mes actual';
-document.querySelectorAll('.navbtn').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+activeView));render();if(activeView==='images')void loadLibraryGallery(false)});for(let id of ['filterBrand','filterPlatform','filterType','filterStatus'])$(id).addEventListener('change',render);$('clearFilters').onclick=()=>{for(let id of ['filterBrand','filterPlatform','filterType','filterStatus'])$(id).value='all';render()};function periodMove(n){
+document.querySelectorAll('.navbtn').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+activeView));render();if(activeView==='images')void loadLibraryGallery(false);if(activeView==='settings'||activeView==='indicators')void refreshGoals()});for(let id of ['filterBrand','filterPlatform','filterType','filterStatus'])$(id).addEventListener('change',render);$('clearFilters').onclick=()=>{for(let id of ['filterBrand','filterPlatform','filterType','filterStatus'])$(id).value='all';render()};function periodMove(n){
 if(activeView==='matrix'){
   const adjacent= n<0 ? shift(periodStart,-1) : shift(periodEnd,1);
   [periodStart,periodEnd]=fortnightForDate(...adjacent.split('-').map(Number));
@@ -238,19 +245,95 @@ function indicatorTable(title, columns, rows) {
     (body || '<tr><td colspan="'+columns.length+'" class="empty">Sin registros en el período</td></tr>')+'</tbody></table></div></section>';
 }
 
-function publicationGoals(records, from, until, format) {
-  const days = Math.round((Date.parse(until) - Date.parse(from)) / 86400000) + 1;
-  const halfMonth = date => {
-    const [year, month, day] = date.split('-').map(Number);
-    return (year * 12 + month - 1) * 2 + Number(day > 15);
+const GOAL_FORMATS = [['Historia','Historias'],['Post','Posts'],['Reel','Reels']];
+let goalsState = null;
+let goalsEditRevision = null;
+let canEditGoals = false;
+let goalsRequest = 0;
+
+function fortnightUnits(from, until) {
+  const dayMs = 86400000;
+  const describe = date => {
+    const [year,month,day] = date.split('-').map(Number);
+    const [start,end] = fortnightForDate(year,month,day);
+    return {index:(year*12+month)*2+Number(day>15),start:Date.parse(start),end:Date.parse(end)};
   };
-  const planned = {Historia:0, Post:0, Reel:0};
-  for (const item of records) if (item.status === 'planned') planned[item.type]++;
-  return [['Historia','Historias',days],['Post','Posts',Math.ceil(days / 7)],
-    ['Reel','Reels',halfMonth(until)-halfMonth(from)+1]]
-    .filter(([type]) => format === 'all' || format === type)
-    .map(([type,label,goal]) => [label,goal,planned[type],Math.max(0,goal-planned[type])]);
+  const first = describe(from);
+  const last = describe(until);
+  const fraction = (part,start,end) => (end-start+dayMs)/(part.end-part.start+dayMs);
+  if (first.index === last.index) return fraction(first,Date.parse(from),Date.parse(until));
+  return fraction(first,Date.parse(from),first.end) + (last.index-first.index-1) +
+    fraction(last,last.start,Date.parse(until));
 }
+
+function publicationGoals(records, units, format, targets) {
+  const planned = {Historia:0,Post:0,Reel:0};
+  for (const item of records) if (item.status === 'planned') planned[item.type]++;
+  return GOAL_FORMATS.filter(([type]) => format === 'all' || format === type).map(([type,label]) => {
+    const goal = Math.ceil(Math.round(targets[type]*units*1e9)/1e9);
+    return [label,goal,planned[type],Math.max(0,goal-planned[type]),
+      goal ? Math.round(planned[type]/goal*100)+'%' : '—'];
+  });
+}
+
+function renderGoalFields() {
+  $('goalsFields').innerHTML = BRANDS.map(brand=>'<tr><th scope="row">'+esc(brand)+'</th>'+
+    GOAL_FORMATS.map(([type,label])=>'<td class="field" style="display:table-cell"><input type="number" required min="0" step="1" max="1000000" id="goal'+brand+type+'" aria-label="'+esc(label+' de '+brand)+'" value="'+
+      esc(goalsState?.targets[brand]?.[type] ?? '')+'" '+(!canEditGoals || !goalsState ? 'disabled' : '')+'></td>').join('')+'</tr>').join('');
+  $('saveGoals').disabled = !canEditGoals || !goalsState;
+}
+
+async function refreshGoals(discardEdits = false) {
+  if (!accountId) return;
+  const request = ++goalsRequest;
+  try {
+    const {data,error} = await db.from('social_planner_goals').select('revision,targets').eq('id',1).single();
+    if (request !== goalsRequest) return;
+    if (error || !data) throw error || Error('No hay metas');
+    if (goalsState && data.revision < goalsState.revision) return;
+    goalsState = data;
+    if (discardEdits) goalsEditRevision = null;
+    if (goalsEditRevision === null) renderGoalFields();
+    $('goalsStatus').textContent = goalsEditRevision !== null && goalsEditRevision !== data.revision ?
+      'Las metas cambiaron en otro equipo. Pulsa Recargar metas antes de editar de nuevo.' : '';
+    if (activeView === 'indicators') renderIndicators();
+  } catch {
+    if (request !== goalsRequest) return;
+    $('goalsStatus').textContent = 'No se pudieron consultar las metas. Pulsa Recargar metas para reintentar.';
+    if (activeView === 'indicators') renderIndicators();
+  }
+}
+$('goalsForm').addEventListener('input',()=>{goalsEditRevision ??= goalsState?.revision ?? null;});
+$('reloadGoals').onclick = () => {
+  if (goalsEditRevision === null || confirm('¿Descartar los cambios sin guardar y recargar las metas?')) void refreshGoals(true);
+};
+$('goalsForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  if (pending || !canEditGoals || !goalsState) return;
+  const expected = goalsEditRevision ?? goalsState.revision;
+  if (expected !== goalsState.revision) return;
+  const targets = Object.fromEntries(BRANDS.map(brand=>[brand,Object.fromEntries(GOAL_FORMATS.map(([type])=>[type,$('goal'+brand+type).valueAsNumber]))]));
+  setPending(true);
+  try {
+    const {data,error} = await db.from('social_planner_goals').update({targets,revision:expected+1})
+      .eq('id',1).eq('revision',expected).select('revision,targets').maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      await refreshGoals();
+      $('goalsStatus').textContent = 'No se guardaron los cambios. Recarga las metas antes de volver a editar.';
+      return;
+    }
+    goalsState = data;
+    goalsEditRevision = null;
+    renderGoalFields();
+    $('goalsStatus').textContent = 'Metas guardadas.';
+    showToast('Metas guardadas');
+  } catch {
+    $('goalsStatus').textContent = 'No se pudieron guardar las metas. Vuelve a intentar.';
+  } finally {
+    setPending(false);
+  }
+});
 
 function renderIndicators() {
   if (!customIndicatorDates) {
@@ -269,11 +352,19 @@ function renderIndicators() {
   const filtersForReport = filters();
   const records = filtersForReport.status === 'empty' ? [] :
     items.filter(item => item.date >= from && item.date <= until && match(item, filtersForReport));
-  const goals = publicationGoals(items.filter(item => item.date >= from && item.date <= until &&
-    match(item, {...filtersForReport,status:'all'})), from, until, filtersForReport.type);
-  $('publicationGoals').innerHTML = indicatorTable('Cuánto falta programar',
-    ['Formato','Meta','Programados','Faltan programar'],goals) +
-    '<p class="subtitle" style="margin:0 0 16px">Meta conjunta para los negocios y redes filtrados. Se cuenta una historia por día, un post por cada bloque de 7 días (incluidos los bloques parciales) y un reel por cada quincena del mes incluida en el rango. Solo los registros programados cuentan para cubrir la meta.</p>';
+  if (goalsState) {
+    const units = fortnightUnits(from,until);
+    const businesses = BRANDS.filter(brand=>filtersForReport.brand==='all'||filtersForReport.brand===brand);
+    $('publicationGoals').innerHTML = businesses.map(brand=>{
+      const scheduled = items.filter(item => item.date >= from && item.date <= until &&
+        match(item,{...filtersForReport,brand,status:'all'}));
+      const rows = publicationGoals(scheduled,units,filtersForReport.type,goalsState.targets[brand]);
+      return indicatorTable('Cuánto falta programar · '+brand,
+        ['Formato','Meta','Programados','Faltan programar','Avance'],rows);
+    }).join('')+'<p class="subtitle" style="margin:0 0 16px">Avance = programados ÷ meta. Las quincenas parciales se prorratean por días y la meta se redondea hacia arriba.</p>';
+  } else {
+    $('publicationGoals').textContent = 'Metas no disponibles. Abre Configuración y pulsa Recargar metas.';
+  }
   const summary = summarizeIndicators(records);
   const cards = [
     ['Registrados',summary.total], ['Programados',summary.planned],
@@ -619,6 +710,11 @@ function setPending(value) {
 
 function showLogin(message = '') {
   accountId = null;
+  goalsRequest++;
+  goalsState = null;
+  goalsEditRevision = null;
+  canEditGoals = false;
+  renderGoalFields();
   revision = null;
   items = [];
   owners = [];
@@ -640,6 +736,8 @@ async function connectAccount(session) {
     return;
   }
   accountId = session.user.id;
+  canEditGoals = session.user.email?.toLowerCase() === 'carloschgmix@gmail.com';
+  await refreshGoals();
   applyState(data);
   $('plannerLogin').classList.add('hidden');
   $('plannerApp').classList.remove('hidden');
@@ -760,7 +858,7 @@ $('plannerLoginForm').addEventListener('submit', async event => {
     button.disabled = false;
   }
 });
-window.addEventListener('focus', () => refreshShared());
+window.addEventListener('focus', () => { void refreshShared(); if (['indicators','settings'].includes(activeView)) void refreshGoals(); });
 setInterval(() => { if (!document.hidden) void refreshShared(); }, 15000);
 
 async function restoreSession() {

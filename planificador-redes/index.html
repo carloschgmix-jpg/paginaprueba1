@@ -40,7 +40,13 @@
 <form id="plannerLoginForm" class="formgrid">
 <div class="field wide"><label for="plannerEmail">Correo</label><input id="plannerEmail" type="email" autocomplete="username" required></div>
 <div class="field wide"><label for="plannerPassword">Contraseña</label><input id="plannerPassword" type="password" autocomplete="current-password" required></div>
-<button class="btn primary" id="plannerSignIn" type="submit">Ingresar</button>
+<button class="btn primary" id="plannerSignIn" type="submit">Ingresar</button><button class="btn" id="plannerResetPassword" type="button">Recuperar contraseña</button>
+</form>
+<form id="plannerPasswordSetup" class="formgrid hidden">
+<p class="wide" id="plannerPasswordAccount"></p>
+<div class="field wide"><label for="plannerNewPassword">Nueva contraseña</label><input id="plannerNewPassword" type="password" autocomplete="new-password" minlength="8" required></div>
+<div class="field wide"><label for="plannerConfirmPassword">Confirmar contraseña</label><input id="plannerConfirmPassword" type="password" autocomplete="new-password" minlength="8" required></div>
+<button class="btn primary" id="plannerSavePassword" type="submit">Guardar contraseña</button>
 </form>
 <p id="plannerLoginStatus" role="status" style="margin:12px 0 0"></p>
 </section>
@@ -828,6 +834,8 @@ function setPending(value) {
 }
 
 function showLogin(message = '') {
+  $('plannerLoginForm').classList.remove('hidden');
+  $('plannerPasswordSetup').classList.add('hidden');
   accountId = null;
   goalsRequest++;
   goalsState = null;
@@ -980,6 +988,81 @@ $('plannerLoginForm').addEventListener('submit', async event => {
 window.addEventListener('focus', () => { void refreshShared(); if (['indicators','settings'].includes(activeView)) void refreshGoals(); });
 setInterval(() => { if (!document.hidden) void refreshShared(); }, 15000);
 
+$('plannerResetPassword').onclick = async () => {
+  const email = $('plannerEmail');
+  if (!db || !email.value.trim() || !email.reportValidity()) {
+    $('plannerLoginStatus').textContent = 'Ingresa tu correo para recuperar la contraseña.';
+    email.focus();
+    return;
+  }
+  const button = $('plannerResetPassword');
+  button.disabled = true;
+  try {
+    const {error} = await db.auth.resetPasswordForEmail(email.value.trim(),{redirectTo:window.location.origin+'/'});
+    $('plannerLoginStatus').textContent = error ?
+      'No se pudo solicitar el enlace. Intenta más tarde.' : 'Si el correo tiene cuenta, recibirá un enlace para crear una contraseña.';
+  } catch {
+    $('plannerLoginStatus').textContent = 'No se pudo solicitar el enlace. Revisa tu conexión.';
+  } finally {
+    button.disabled = false;
+  }
+};
+
+$('plannerPasswordSetup').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const password = $('plannerNewPassword');
+  const confirmation = $('plannerConfirmPassword');
+  const feedback = $('plannerLoginStatus');
+  if (password.value!==confirmation.value) {
+    feedback.textContent = 'Las contraseñas deben coincidir.';
+    confirmation.focus();
+    return;
+  }
+  const button = $('plannerSavePassword');
+  button.disabled = true;
+  try {
+    const {error} = await db.auth.updateUser({password:password.value});
+    if (error) {
+      feedback.textContent = 'No se pudo guardar la contraseña. Usa otra contraseña o solicita un enlace nuevo.';
+      return;
+    }
+    const {data} = await db.auth.getSession();
+    if (!data.session) showLogin('Contraseña guardada. Inicia sesión.');
+    else await connectAccount(data.session);
+  } catch {
+    feedback.textContent = 'No se pudo completar el proceso. Revisa tu conexión.';
+  } finally {
+    password.value = '';
+    confirmation.value = '';
+    button.disabled = false;
+  }
+});
+
+async function restorePasswordLink() {
+  const fragment = new URLSearchParams(window.location.hash.slice(1));
+  const query = new URLSearchParams(window.location.search);
+  const accessToken = fragment.get('access_token');
+  const refreshToken = fragment.get('refresh_token');
+  const hasError = fragment.has('error') || query.has('error');
+  if (!accessToken && !refreshToken && !hasError) return false;
+  history.replaceState(null,'',window.location.pathname);
+  if (hasError || !accessToken || !refreshToken || !['invite','recovery'].includes(fragment.get('type'))) {
+    showLogin('El enlace es inválido o venció. Solicita uno nuevo desde Recuperar contraseña.');
+    return true;
+  }
+  const {data,error} = await db.auth.setSession({access_token:accessToken,refresh_token:refreshToken});
+  if (error || !data.session) {
+    showLogin('El enlace venció. Solicita uno nuevo desde Recuperar contraseña.');
+    return true;
+  }
+  $('plannerLoginForm').classList.add('hidden');
+  $('plannerPasswordSetup').classList.remove('hidden');
+  $('plannerPasswordAccount').textContent = 'Crea una contraseña para '+data.session.user.email+'.';
+  $('plannerLoginStatus').textContent = '';
+  $('plannerNewPassword').focus();
+  return true;
+}
+
 async function restoreSession() {
   const button = $('plannerSignIn');
   button.disabled = true;
@@ -989,6 +1072,7 @@ async function restoreSession() {
   }
   $('plannerLoginStatus').textContent = 'Comprobando sesión…';
   try {
+    if (await restorePasswordLink()) return;
     const {data, error} = await db.auth.getSession();
     if (error || !data.session) showLogin();
     else await connectAccount(data.session);

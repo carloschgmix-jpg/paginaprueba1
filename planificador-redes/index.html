@@ -26,6 +26,12 @@
 #view-images{margin-top:24px}
 .listing tfoot td,.listing tfoot th{background:#eef2ff;font-weight:700;border-top:2px solid var(--border)}
 #view-indicators{margin-top:24px}
+.indicator-panel>summary{list-style:none;cursor:pointer;justify-content:flex-start;gap:10px}
+.indicator-panel>summary::-webkit-details-marker{display:none}
+.indicator-panel>summary:focus-visible{outline:2px solid var(--primary);outline-offset:-3px}
+.indicator-panel[open]>summary .indicator-chevron{transform:rotate(90deg)}
+.indicator-chevron{font-size:16px;line-height:1;color:var(--primary)}
+.indicator-controls{padding:12px 18px;display:flex;justify-content:flex-end}
 </style></head><body>
 <section class="modal" id="plannerLogin" style="margin:8vh auto">
 <h2>Planificador de redes</h2>
@@ -204,6 +210,9 @@ if (activeView==='matrix' && nextView!=='matrix') {
   monthRange=[periodStart,periodEnd];
   [periodStart,periodEnd]=matrixRange;
 }
+if (nextView==='indicators' && activeView!=='indicators') {
+  $('publicationGoals').querySelectorAll('details[open]').forEach(panel=>{panel.open=false;});
+}
 activeView=nextView;
 $('planningToolbar').classList.toggle('hidden',['images','settings','indicators'].includes(activeView));
 $('planningSummary').classList.toggle('hidden',['images','settings','indicators'].includes(activeView));
@@ -237,13 +246,16 @@ const updatedOwners=old?owners.map(owner=>owner.id===id?{...owner,name,role,bran
 const updatedItems=old&&old.name!==name?items.map(item=>item.owner===old.name?{...item,owner:name}:item):items;
 if(!await saveShared(updatedItems,updatedOwners))return;render();closeOwner();showToast('Responsable guardado')});$('ownersBody').addEventListener('click',async e=>{let edit=e.target.closest('[data-owner-edit]'),del=e.target.closest('[data-owner-delete]');if(edit){editOwner(edit.dataset.ownerEdit);return}if(del){let o=owners.find(x=>x.id===del.dataset.ownerDelete);if(!o)return;let n=items.filter(i=>i.owner===o.name).length;if(!confirm(`¿Eliminar a ${o.name}? ${n} publicación(es) quedarán sin responsable. `))return;const updatedItems=items.map(item=>item.owner===o.name?{...item,owner:''}:item);
 if(!await saveShared(updatedItems,owners.filter(owner=>owner.id!==o.id)))return;showToast('Responsable eliminado')}});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeOwner()});
-function indicatorTable(title, columns, rows, controls = '', totals = null) {
+function indicatorTable(title, columns, rows, controls = '', totals = null, expanded = false) {
   const headings = columns.map(column => '<th scope="col">'+esc(column)+'</th>').join('');
   const body = rows.map(row => '<tr><th scope="row">'+esc(row[0])+'</th>'+row.slice(1).map(value=>'<td>'+esc(value)+'</td>').join('')+'</tr>').join('');
   const footer = totals ? '<tfoot><tr><th scope="row">'+esc(totals[0])+'</th>'+
     totals.slice(1).map(value=>'<td>'+esc(value)+'</td>').join('')+'</tr></tfoot>' : '';
-  return '<section class="panel"><div class="panelhead"><h2>'+esc(title)+'</h2>'+controls+'</div><div class="scroll"><table class="listing" style="min-width:620px"><thead><tr>'+headings+'</tr></thead><tbody>'+
-    (body || '<tr><td colspan="'+columns.length+'" class="empty">Sin registros en el período</td></tr>')+'</tbody>'+footer+'</table></div></section>';
+  return '<details class="panel indicator-panel" data-indicator-title="'+esc(title)+'"'+(expanded?' open':'')+
+    '><summary class="panelhead"><span class="indicator-chevron" aria-hidden="true">›</span><h2>'+esc(title)+
+    '</h2></summary>'+(controls?'<div class="indicator-controls">'+controls+'</div>':'')+
+    '<div class="scroll"><table class="listing" style="min-width:620px"><thead><tr>'+headings+'</tr></thead><tbody>'+
+    (body || '<tr><td colspan="'+columns.length+'" class="empty">Sin registros en el período</td></tr>')+'</tbody>'+footer+'</table></div></details>';
 }
 
 const GOAL_FORMATS = [['Historia','Historias'],['Post','Posts'],['Reel','Reels']];
@@ -442,6 +454,7 @@ function renderIndicators() {
 
   const filtersForReport = {brand:'all',platform:'all',type:'all',status:'all'};
   if (goalsState) {
+    const expanded = new Set([...$('publicationGoals').querySelectorAll('details[open]')].map(panel=>panel.dataset.indicatorTitle));
     const units = fortnightUnits(from,until);
     const businesses = BRANDS.filter(brand=>filtersForReport.brand==='all'||filtersForReport.brand===brand);
     $('publicationGoals').innerHTML = businesses.map(brand=>{
@@ -468,13 +481,14 @@ function renderIndicators() {
         const storyDays = network === filtersForReport.platform ? daily :
           dailyStoryBreakdown(storyRecords,from,until,targets,networksFor(network));
         const detailTotals = dailyStoryTotals(storyDays);
-        detail = '<p class="subtitle" style="margin:0 0 12px">'+esc(detailTotals[4])+'.</p>'+
-          indicatorTable('Historias por día · '+brand,['Fecha','Meta diaria','Programadas','Faltan programar','Cumplimiento'],
-            storyDays.rows,reportNetworkButtons(brand,network),detailTotals);
+        const title = 'Historias por día · '+brand;
+        detail = indicatorTable(title,['Fecha','Meta diaria','Programadas','Faltan programar','Cumplimiento'],
+          storyDays.rows,reportNetworkButtons(brand,network),detailTotals,expanded.has(title));
       }
-      return indicatorTable('Programaciones '+brand,
+      const title = 'Programaciones '+brand;
+      return indicatorTable(title,
         ['Formato','Meta','Programados','Faltan programar','Avance'],rows,
-        reportNetworkButtons(brand,programmingNetwork,'programming'))+detail;
+        reportNetworkButtons(brand,programmingNetwork,'programming'),null,expanded.has(title))+detail;
     }).join('')+'<p class="subtitle" style="margin:0 0 16px">El avance se calcula por red. Los excedentes no cubren faltantes de otras redes ni de otras fechas en historias. Las metas de posts y reels se prorratean en quincenas parciales.</p>';
   } else {
     $('publicationGoals').textContent = 'Metas no disponibles. Abre Configuración y pulsa Recargar metas.';

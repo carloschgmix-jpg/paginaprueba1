@@ -24,6 +24,7 @@
 .image-gallery figcaption{overflow-wrap:anywhere;margin:5px 0}.calendar-images{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:5px}
 .date-entry{position:relative}.date-entry input[type=text]{padding-right:38px}.date-entry input[type=date]{position:absolute;right:0;top:0;width:36px;height:100%;padding:0;opacity:0;cursor:pointer}.date-entry input[type=date]::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:auto;height:auto;cursor:pointer}.date-entry .date-icon{position:absolute;right:10px;top:9px;pointer-events:none}.date-entry:focus-within .date-icon{color:var(--primary)}
 #view-images{margin-top:24px}
+.listing tfoot td,.listing tfoot th{background:#eef2ff;font-weight:700;border-top:2px solid var(--border)}
 </style></head><body>
 <section class="modal" id="plannerLogin" style="margin:8vh auto">
 <h2>Planificador de redes</h2>
@@ -238,11 +239,13 @@ function summarizeIndicators(records) {
   return summary;
 }
 
-function indicatorTable(title, columns, rows, controls = '') {
+function indicatorTable(title, columns, rows, controls = '', totals = null) {
   const headings = columns.map(column => '<th scope="col">'+esc(column)+'</th>').join('');
   const body = rows.map(row => '<tr><th scope="row">'+esc(row[0])+'</th>'+row.slice(1).map(value=>'<td>'+esc(value)+'</td>').join('')+'</tr>').join('');
+  const footer = totals ? '<tfoot><tr><th scope="row">'+esc(totals[0])+'</th>'+
+    totals.slice(1).map(value=>'<td>'+esc(value)+'</td>').join('')+'</tr></tfoot>' : '';
   return '<section class="panel"><div class="panelhead"><h2>'+esc(title)+'</h2>'+controls+'</div><div class="scroll"><table class="listing" style="min-width:620px"><thead><tr>'+headings+'</tr></thead><tbody>'+
-    (body || '<tr><td colspan="'+columns.length+'" class="empty">Sin registros en el período</td></tr>')+'</tbody></table></div></section>';
+    (body || '<tr><td colspan="'+columns.length+'" class="empty">Sin registros en el período</td></tr>')+'</tbody>'+footer+'</table></div></section>';
 }
 
 const GOAL_FORMATS = [['Historia','Historias'],['Post','Posts'],['Reel','Reels']];
@@ -288,6 +291,11 @@ function dailyStoryBreakdown(records, from, until, goal) {
     rows.push([friendly(date),goal,planned,missing,missing ? 'Pendiente' : 'Cumplida']);
   }
   return {rows,covered,credited};
+}
+function dailyStoryTotals(days) {
+  const [goal,planned,missing] = days.rows.reduce(([goal,planned,missing],row)=>
+    [goal+row[1],planned+row[2],missing+row[3]],[0,0,0]);
+  return ['Total del período',goal,planned,missing,days.covered+' de '+days.rows.length+' días cumplidos'];
 }
 function publicationGoals(records, units, format, targets, daily) {
   const planned = {Historia:0,Post:0,Reel:0};
@@ -422,7 +430,7 @@ function renderIndicators() {
         detail = '<p class="subtitle" style="margin:0 0 12px">'+storyDays.covered+' de '+storyDays.rows.length+
           ' días cumplieron la meta de historias. Los excedentes de un día no cubren otros días.</p>'+
           indicatorTable('Historias por día · '+brand,['Fecha','Meta diaria','Programadas','Faltan programar','Cumplimiento'],
-            storyDays.rows,storyNetworkButtons(brand,network));
+            storyDays.rows,storyNetworkButtons(brand,network),dailyStoryTotals(storyDays));
       }
       return indicatorTable('Cuánto falta programar · '+brand,
         ['Formato','Meta','Programados','Faltan programar','Avance'],rows)+detail;

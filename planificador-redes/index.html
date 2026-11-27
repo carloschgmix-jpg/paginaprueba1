@@ -32,6 +32,7 @@
 .indicator-panel[open]>summary .indicator-chevron{transform:rotate(90deg)}
 .indicator-chevron{font-size:16px;line-height:1;color:var(--primary)}
 .indicator-controls{padding:12px 18px;display:flex;justify-content:flex-end}
+.listing .unavailable-goal{color:var(--muted);background:#f5f7fb}
 </style></head><body>
 <section class="modal" id="plannerLogin" style="margin:8vh auto">
 <h2>Planificador de redes</h2>
@@ -279,6 +280,10 @@ function fortnightUnits(from, until) {
     fraction(last,last.start,Date.parse(until));
 }
 
+function supportsGoalFormat(network,type) {
+  if (network==='WhatsApp') return type==='Historia';
+  return network!=='TikTok' || type!=='Post';
+}
 function networkTargets(targets, network) {
   return targets.networks?.[network] ?? targets;
 }
@@ -327,6 +332,7 @@ function publicationGoals(records, units, format, targets, networks, daily) {
       [,goal,planned,missing] = dailyStoryTotals(daily);
     } else {
       for (const network of networks) {
+        if (!supportsGoalFormat(network,type)) continue;
         const target = goalValue(networkTargets(targets,network),type);
         const networkGoal = Math.ceil(Math.round(target*units*1e9)/1e9);
         const count = records.filter(item=>item.type===type&&item.platform===network&&item.status==='planned').length;
@@ -347,6 +353,7 @@ function renderGoalFields() {
     const targets = goalsState ? networkTargets(goalsState.targets[brand],network) : null;
     return '<tr><th scope="row">'+esc(brand)+'</th><td>'+esc(network)+'</td>'+
       GOAL_FORMATS.map(([type,label])=>{
+        if (!supportsGoalFormat(network,type)) return '<td class="unavailable-goal">No aplica</td>';
         const key = type==='Historia'?'HistoriaDiaria':type;
         const value = targets ? goalValue(targets,key) : '';
         const max = type==='Historia' ? 3 : 1000000;
@@ -390,7 +397,7 @@ $('goalsForm').addEventListener('submit',async event=>{
   const targets = Object.fromEntries(BRANDS.map(brand=>[brand,{
     ...goalsState.targets[brand],
     networks:Object.fromEntries(PLATFORMS.map(network=>[network,Object.fromEntries(GOAL_FORMATS.map(([type])=>
-      [type==='Historia'?'HistoriaDiaria':type,$(goalFieldId(brand,network,type)).valueAsNumber]))]))
+      [type==='Historia'?'HistoriaDiaria':type,supportsGoalFormat(network,type)?$(goalFieldId(brand,network,type)).valueAsNumber:0]))]))
   }]));
   setPending(true);
   try {

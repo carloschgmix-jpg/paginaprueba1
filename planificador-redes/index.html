@@ -238,10 +238,10 @@ function summarizeIndicators(records) {
   return summary;
 }
 
-function indicatorTable(title, columns, rows) {
+function indicatorTable(title, columns, rows, controls = '') {
   const headings = columns.map(column => '<th scope="col">'+esc(column)+'</th>').join('');
   const body = rows.map(row => '<tr><th scope="row">'+esc(row[0])+'</th>'+row.slice(1).map(value=>'<td>'+esc(value)+'</td>').join('')+'</tr>').join('');
-  return '<section class="panel"><div class="panelhead"><h2>'+esc(title)+'</h2></div><div class="scroll"><table class="listing" style="min-width:620px"><thead><tr>'+headings+'</tr></thead><tbody>'+
+  return '<section class="panel"><div class="panelhead"><h2>'+esc(title)+'</h2>'+controls+'</div><div class="scroll"><table class="listing" style="min-width:620px"><thead><tr>'+headings+'</tr></thead><tbody>'+
     (body || '<tr><td colspan="'+columns.length+'" class="empty">Sin registros en el período</td></tr>')+'</tbody></table></div></section>';
 }
 
@@ -365,6 +365,25 @@ $('goalsForm').addEventListener('submit',async event=>{
   }
 });
 
+const storyNetworks = new Map();
+function storyNetworkButtons(brand, selected) {
+  return '<div class="actions" role="group" aria-label="Red social de historias de '+esc(brand)+'">'+
+    ['all',...PLATFORMS].map(network=>{
+      const active = network === selected;
+      return '<button type="button" class="btn'+(active?' primary':'')+'" data-story-brand="'+esc(brand)+
+        '" data-story-network="'+esc(network)+'" aria-pressed="'+active+'">'+esc(network==='all'?'Todas':network)+'</button>';
+    }).join('')+'</div>';
+}
+$('publicationGoals').addEventListener('click',event=>{
+  const button = event.target.closest('button[data-story-network]');
+  if (!button) return;
+  const {storyBrand,storyNetwork} = button.dataset;
+  if (!BRANDS.includes(storyBrand) || !['all',...PLATFORMS].includes(storyNetwork)) return;
+  storyNetworks.set(storyBrand,storyNetwork);
+  renderIndicators();
+  $('publicationGoals').querySelector('button[data-story-brand="'+storyBrand+'"][data-story-network="'+storyNetwork+'"]')?.focus({preventScroll:true});
+});
+
 function renderIndicators() {
   if (!customIndicatorDates) {
     const [start,end] = currentFortnight();
@@ -392,9 +411,19 @@ function renderIndicators() {
       const includesStories = ['all','Historia'].includes(filtersForReport.type);
       const daily = includesStories ? dailyStoryBreakdown(scheduled,from,until,dailyStoryGoal(targets)) : null;
       const rows = publicationGoals(scheduled,units,filtersForReport.type,targets,daily);
-      const detail = daily ? '<p class="subtitle" style="margin:0 0 12px">'+daily.covered+' de '+daily.rows.length+
-        ' días cumplieron la meta de historias. Los excedentes de un día no cubren otros días.</p>'+
-        indicatorTable('Historias por día · '+brand,['Fecha','Meta diaria','Programadas','Faltan programar','Cumplimiento'],daily.rows) : '';
+      let detail = '';
+      if (daily) {
+        const network = storyNetworks.get(brand) ?? filtersForReport.platform;
+        const storyRecords = network === filtersForReport.platform ? scheduled :
+          items.filter(item=>item.date>=from && item.date<=until &&
+            match(item,{brand,platform:network,type:'Historia',status:'planned'}));
+        const storyDays = network === filtersForReport.platform ? daily :
+          dailyStoryBreakdown(storyRecords,from,until,dailyStoryGoal(targets));
+        detail = '<p class="subtitle" style="margin:0 0 12px">'+storyDays.covered+' de '+storyDays.rows.length+
+          ' días cumplieron la meta de historias. Los excedentes de un día no cubren otros días.</p>'+
+          indicatorTable('Historias por día · '+brand,['Fecha','Meta diaria','Programadas','Faltan programar','Cumplimiento'],
+            storyDays.rows,storyNetworkButtons(brand,network));
+      }
       return indicatorTable('Cuánto falta programar · '+brand,
         ['Formato','Meta','Programados','Faltan programar','Avance'],rows)+detail;
     }).join('')+'<p class="subtitle" style="margin:0 0 16px">Las metas de posts y reels se prorratean en quincenas parciales y se redondean hacia arriba.</p>';

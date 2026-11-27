@@ -25,6 +25,7 @@
 .date-entry{position:relative}.date-entry input[type=text]{padding-right:38px}.date-entry input[type=date]{position:absolute;right:0;top:0;width:36px;height:100%;padding:0;opacity:0;cursor:pointer}.date-entry input[type=date]::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:auto;height:auto;cursor:pointer}.date-entry .date-icon{position:absolute;right:10px;top:9px;pointer-events:none}.date-entry:focus-within .date-icon{color:var(--primary)}
 #view-images{margin-top:24px}
 .listing tfoot td,.listing tfoot th{background:#eef2ff;font-weight:700;border-top:2px solid var(--border)}
+#view-indicators{margin-top:24px}
 </style></head><body>
 <section class="modal" id="plannerLogin" style="margin:8vh auto">
 <h2>Planificador de redes</h2>
@@ -57,10 +58,14 @@
 <div class="actions">
 <div class="field"><label for="indicatorFrom">Desde</label><div class="date-entry"><input type="text" id="indicatorFrom" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"><span class="date-icon" aria-hidden="true">▦</span><input type="date" id="indicatorFromPicker" aria-label="Abrir calendario de fecha inicial"></div></div>
 <div class="field"><label for="indicatorUntil">Hasta</label><div class="date-entry"><input type="text" id="indicatorUntil" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"><span class="date-icon" aria-hidden="true">▦</span><input type="date" id="indicatorUntilPicker" aria-label="Abrir calendario de fecha final"></div></div>
-<button class="btn" type="button" id="indicatorReset">Quincena actual</button>
+<div class="actions" role="group" aria-label="Navegación por quincenas">
+<button class="btn" type="button" id="indicatorPrev" aria-label="Quincena anterior">‹</button>
+<strong id="indicatorPeriodLabel" aria-live="polite"></strong>
+<button class="btn" type="button" id="indicatorNext" aria-label="Quincena siguiente">›</button>
+<button class="btn" type="button" id="indicatorReset">Quincena actual</button></div>
 </div>
 </div>
-<div class="minihelp">El informe usa la fecha programada de cada registro y los filtros de negocio, red, formato y estado. Una historia registrada en Facebook e Instagram cuenta una vez en cada red.</div>
+<div class="minihelp">El informe usa la fecha programada. Ajusta el rango con «Desde» y «Hasta», o navega por quincenas con las flechas. Una historia registrada en Facebook e Instagram cuenta una vez en cada red.</div>
 </section>
 <p class="hidden" id="indicatorError" role="status"></p>
 <div id="indicatorReport">
@@ -130,6 +135,11 @@ function fortnightForDate(year,month,day) {
   return day <= 15 ? [isoUtc(year,month,1),isoUtc(year,month,15)] :
     [isoUtc(year,month,16),isoUtc(year,month+1,0)];
 }
+function adjacentFortnight(date,direction) {
+  const [start,end] = fortnightForDate(...date.split('-').map(Number));
+  const adjacent = direction < 0 ? shift(start,-1) : shift(end,1);
+  return fortnightForDate(...adjacent.split('-').map(Number));
+}
 function parseVisibleDate(value) {
   const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
   if (!match) return '';
@@ -195,13 +205,12 @@ if (activeView==='matrix' && nextView!=='matrix') {
   [periodStart,periodEnd]=matrixRange;
 }
 activeView=nextView;
-$('planningToolbar').classList.toggle('hidden',['images','settings'].includes(activeView));
-$('planningSummary').classList.toggle('hidden',['images','settings'].includes(activeView));
+$('planningToolbar').classList.toggle('hidden',['images','settings','indicators'].includes(activeView));
+$('planningSummary').classList.toggle('hidden',['images','settings','indicators'].includes(activeView));
 $('nowPeriod').textContent=activeView==='matrix'?'Quincena actual':'Mes actual';
 document.querySelectorAll('.navbtn').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+activeView));render();if(activeView==='images')void loadLibraryGallery(false);if(activeView==='settings'||activeView==='indicators')void refreshGoals()});for(let id of ['filterBrand','filterPlatform','filterType','filterStatus'])$(id).addEventListener('change',render);$('clearFilters').onclick=()=>{for(let id of ['filterBrand','filterPlatform','filterType','filterStatus'])$(id).value='all';render()};function periodMove(n){
 if(activeView==='matrix'){
-  const adjacent= n<0 ? shift(periodStart,-1) : shift(periodEnd,1);
-  [periodStart,periodEnd]=fortnightForDate(...adjacent.split('-').map(Number));
+  [periodStart,periodEnd]=adjacentFortnight(periodStart,n);
   render();
   return;
 }
@@ -428,9 +437,10 @@ function renderIndicators() {
   $('indicatorError').classList.toggle('hidden', !invalid);
   $('indicatorReport').classList.toggle('hidden', invalid);
   $('indicatorError').textContent = invalid ? 'Ingresa fechas válidas en DD/MM/AAAA. «Desde» debe ser anterior o igual a «Hasta».' : '';
+  $('indicatorPeriodLabel').textContent = invalid ? 'Rango personalizado' : friendly(from)+' – '+friendly(until);
   if (invalid) return;
 
-  const filtersForReport = filters();
+  const filtersForReport = {brand:'all',platform:'all',type:'all',status:'all'};
   if (goalsState) {
     const units = fortnightUnits(from,until);
     const businesses = BRANDS.filter(brand=>filtersForReport.brand==='all'||filtersForReport.brand===brand);
@@ -473,6 +483,16 @@ function renderIndicators() {
 }
 
 for (const id of ['indicatorFrom','indicatorUntil']) $(id).addEventListener('change',renderIndicators);
+function moveIndicatorFortnight(direction) {
+  const base = parseVisibleDate($('indicatorFrom').value) || currentFortnight()[0];
+  const [start,end] = adjacentFortnight(base,direction);
+  customIndicatorDates = true;
+  setDateField('indicatorFrom',start);
+  setDateField('indicatorUntil',end);
+  renderIndicators();
+}
+$('indicatorPrev').onclick = () => moveIndicatorFortnight(-1);
+$('indicatorNext').onclick = () => moveIndicatorFortnight(1);
 $('indicatorReset').onclick = () => {
   customIndicatorDates = false;
   renderIndicators();

@@ -19,6 +19,9 @@
 .owners-table{min-width:700px}.owner-actions{display:flex;gap:7px}.owner-summary{display:inline-flex;gap:6px;align-items:center}.owner-initials{width:30px;height:30px;display:inline-grid;place-items:center;background:#e6ebfb;color:#334db5;border-radius:50%;font-weight:800}.owner-empty{color:var(--muted);font-size:12px}.owner-count{background:#eef2ff;color:#3658bb;padding:5px 9px;border-radius:20px;font-weight:800}
 .story-replica{display:flex;align-items:center;gap:8px;color:var(--ink);cursor:pointer}
 .story-replica input{accent-color:var(--primary)}
+.image-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:12px;padding:12px}
+.image-gallery figure{margin:0;min-width:0}.image-gallery img,.calendar-image{display:block;width:100%;aspect-ratio:4/3;object-fit:contain;background:#f1f4fa;border-radius:6px}
+.image-gallery figcaption{overflow-wrap:anywhere;margin:5px 0}.calendar-images{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:5px}
 </style></head><body>
 <section class="modal" id="plannerLogin" style="margin:8vh auto">
 <h2>Planificador de redes</h2>
@@ -31,7 +34,7 @@
 <p id="plannerLoginStatus" role="status" style="margin:12px 0 0"></p>
 </section>
 <div id="plannerApp" class="hidden">
-<div class="shell"><aside class="side"><div class="logo">PYC <span style="color:#f2ae6b">&</span> CHORIPIZZA<small>Marketing Studio</small></div><nav style="display:contents"><button class="navbtn active" data-view="matrix"><span>▦</span> Matriz editorial</button><button class="navbtn" data-view="calendar"><span>▤</span> Calendario</button><button class="navbtn" data-view="list"><span>☷</span> Publicaciones</button><button class="navbtn" data-view="indicators"><span aria-hidden="true">▥</span> Indicadores</button><button class="navbtn" data-view="owners"><span>♙</span> Responsables</button></nav><div class="sidefooter">El calendario se guarda en Supabase y se sincroniza entre los equipos con acceso. Exporta una copia JSON si quieres conservar un respaldo. La publicación en redes sociales se realiza por separado.</div></aside><main class="main"><header class="top"><div><div class="eyebrow">Gestión de contenido · 2 negocios · 4 redes sociales</div><h1>Planificador de redes sociales</h1><p class="subtitle">Organiza historias, posts y reels en una sola vista. Noviembre 2026.</p></div><div class="actions"><button type="button" class="btn hidden" id="plannerBringLocal">Recuperar registros de este navegador</button>
+<div class="shell"><aside class="side"><div class="logo">PYC <span style="color:#f2ae6b">&</span> CHORIPIZZA<small>Marketing Studio</small></div><nav style="display:contents"><button class="navbtn active" data-view="matrix"><span>▦</span> Matriz editorial</button><button class="navbtn" data-view="calendar"><span>▤</span> Calendario</button><button class="navbtn" data-view="list"><span>☷</span> Publicaciones</button><button class="navbtn" data-view="images">▧ Imágenes</button><button class="navbtn" data-view="indicators"><span aria-hidden="true">▥</span> Indicadores</button><button class="navbtn" data-view="owners"><span>♙</span> Responsables</button></nav><div class="sidefooter">El calendario se guarda en Supabase y se sincroniza entre los equipos con acceso. Exporta una copia JSON si quieres conservar un respaldo. La publicación en redes sociales se realiza por separado.</div></aside><main class="main"><header class="top"><div><div class="eyebrow">Gestión de contenido · 2 negocios · 4 redes sociales</div><h1>Planificador de redes sociales</h1><p class="subtitle">Organiza historias, posts y reels en una sola vista. Noviembre 2026.</p></div><div class="actions"><button type="button" class="btn hidden" id="plannerBringLocal">Recuperar registros de este navegador</button>
 <button type="button" class="btn" id="plannerRefresh">Actualizar calendario</button>
 <button type="button" class="btn" id="plannerSignOut">Cerrar sesión</button><button class="btn" id="exportJSON">↓ Respaldo JSON</button><button class="btn" id="importJSON">↑ Importar</button><button class="btn" id="exportCSV">↓ CSV</button><button class="btn primary" id="newPost">＋ Nueva publicación</button><input type="file" accept=".json,application/json" id="fileImport" class="hidden"></div></header>
 <section class="toolbar"><div class="field"><label>Negocio</label><select id="filterBrand"><option value="all">Ambos negocios</option><option>PYC</option><option>Choripizza</option></select></div><div class="field"><label>Red social</label><select id="filterPlatform"><option value="all">Todas las redes</option><option>Facebook</option><option>Instagram</option><option>WhatsApp</option><option>TikTok</option></select></div><div class="field"><label>Formato</label><select id="filterType"><option value="all">Todos los formatos</option><option>Historia</option><option>Post</option><option>Reel</option></select></div><div class="field"><label>Estado</label><select id="filterStatus"><option value="all">Todos los estados</option><option value="empty">Sin programar</option><option value="draft">Idea / borrador</option><option value="planned">Programado</option><option value="ready">Listo para publicar</option><option value="published">Publicado</option><option value="cancelled">Cancelado</option></select></div><div class="date-nav"><button class="btn" id="prevPeriod" title="Periodo anterior">‹</button><strong id="dateTitle">14–30 nov 2026</strong><button class="btn" id="nextPeriod" title="Periodo siguiente">›</button><button class="btn" id="nowPeriod">Nov. 2026</button></div><button class="btn" id="clearFilters">Limpiar filtros</button></section>
@@ -39,6 +42,11 @@
 <section class="view active" id="view-matrix"><div class="panel"><div class="panelhead"><div><h2>Matriz editorial</h2><small>Replica tu estructura original, con celdas editables. Haz clic en “+” para programar contenido.</small></div><div class="legend"><span><i class="dot draft"></i>Idea</span><span><i class="dot planned"></i>Programado</span><span><i class="dot ready"></i>Listo</span><span><i class="dot published"></i>Publicado</span><span><i class="dot cancelled"></i>Cancelado</span></div></div><div class="scroll"><table class="matrix"><thead id="matrixHead"></thead><tbody id="matrixBody"></tbody></table></div><div class="minihelp">Puedes arrastrar una publicación a otra fecha de la misma red, formato y negocio. Si la fecha destino ya contiene publicaciones, se agrega otra entrada sin borrar las existentes. Las celdas vacías equivalen a “n/a” en tu matriz original.</div></div></section>
 <section class="view" id="view-calendar"><div class="panel"><div class="panelhead"><div><h2>Calendario de publicaciones</h2><small id="calendarSubtitle">Vista diaria de los contenidos programados</small></div></div><div class="scroll"><div class="calendar" id="calendarBody"></div></div></div></section>
 <section class="view" id="view-list"><div class="panel"><div class="panelhead"><div><h2>Registro editorial</h2><small>Editar responsable, textos, enlaces, estados y horarios</small></div><button class="btn" id="listNew">＋ Agregar</button></div><div class="scroll"><table class="listing"><thead><tr><th>Fecha / hora</th><th>Negocio</th><th>Red social</th><th>Formato</th><th>Contenido</th><th>Responsable</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="listBody"></tbody></table></div></div></section><section class="view" id="view-owners"><div class="panel"><div class="panelhead"><div><h2>Equipo responsable de publicaciones</h2><small>Registra, edita y elimina responsables para asignarlos a historias, posts y reels de ambos negocios.</small></div><button class="btn primary" id="newOwner">＋ Agregar responsable</button></div><div class="scroll"><table class="listing owners-table"><thead><tr><th>Nombre</th><th>Cargo / función</th><th>Negocio(s)</th><th>Publicaciones asignadas</th><th>Acciones</th></tr></thead><tbody id="ownersBody"></tbody></table></div><div class="minihelp">Los responsables son compartidos entre ambos negocios. Al eliminar un responsable, sus publicaciones conservan su contenido pero quedan sin responsable asignado.</div></div></section>
+<section class="view" id="view-images" aria-labelledby="imageLibraryTitle">
+<div class="panel"><div class="panelhead"><h2 id="imageLibraryTitle">Biblioteca de imágenes</h2>
+<div class="field"><label for="libraryFiles">Subir una o varias imágenes</label><input id="libraryFiles" type="file" accept="image/*" multiple></div></div>
+<p id="libraryStatus" class="minihelp" role="status"></p>
+<div class="image-gallery" id="libraryGallery"></div></div></section>
 <section class="view" id="view-indicators" aria-labelledby="indicatorsTitle">
 <section class="panel">
 <div class="panelhead">
@@ -57,8 +65,11 @@
 <div id="indicatorTables"></div>
 </div>
 </section></main></div>
-<div class="backdrop" id="backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h2 id="modalTitle">Nueva publicación</h2><p>Completa la ficha editorial. Puedes guardar como idea y terminarla después.</p><form id="editor"><input type="hidden" id="editId"><div class="formgrid"><div class="field"><label for="editBrand">Negocio *</label><select id="editBrand" required><option>PYC</option><option>Choripizza</option></select></div><div class="field"><label for="editPlatform">Red social *</label><select id="editPlatform" required><option>Facebook</option><option>Instagram</option><option>WhatsApp</option><option>TikTok</option></select></div><div class="field"><label for="editType">Formato *</label><select id="editType" required><option>Historia</option><option>Post</option><option>Reel</option></select></div><label class="story-replica wide hidden" id="storyReplicaOption"><input type="checkbox" id="storyReplica" disabled><span id="storyReplicaText"></span></label><div class="field"><label for="editStatus">Estado *</label><select id="editStatus" required><option value="draft">Idea / borrador</option><option value="planned">Programado</option><option value="ready">Listo para publicar</option><option value="published">Publicado</option><option value="cancelled">Cancelado</option></select></div><div class="field"><label for="editDate">Fecha *</label><input type="date" id="editDate" required></div><div class="field"><label for="editTime">Hora de publicación</label><input type="time" id="editTime"></div><div class="field wide"><label for="editTitle">Tema / título *</label><input maxlength="130" id="editTitle" placeholder="Ej.: Promo 2x1 en pizzas medianas" required></div><div class="field wide"><label for="editCopy">Texto / copy</label><textarea id="editCopy" rows="3" placeholder="Mensaje, llamado a la acción, hashtags..."></textarea></div><div class="field"><label for="editOwner">Responsable</label><select id="editOwner"><option value="">Sin asignar</option></select></div><div class="field"><label for="editObjective">Objetivo</label><select id="editObjective"><option value="">Sin definir</option><option>Alcance</option><option>Interacción</option><option>Ventas</option><option>Mensajes</option><option>Tráfico</option><option>Seguidores</option></select></div><div class="field wide"><label for="editAsset">Enlace a material creativo</label><input id="editAsset" type="url" placeholder="https://drive.google.com/... (opcional)"></div><div class="field wide"><label for="editImages">Adjuntar imágenes</label>
-<input id="editImages" type="file" accept="image/*" multiple aria-describedby="imageHelp">
+<div class="backdrop" id="backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h2 id="modalTitle">Nueva publicación</h2><p>Completa la ficha editorial. Puedes guardar como idea y terminarla después.</p><form id="editor"><input type="hidden" id="editId"><div class="formgrid"><div class="field"><label for="editBrand">Negocio *</label><select id="editBrand" required><option>PYC</option><option>Choripizza</option></select></div><div class="field"><label for="editPlatform">Red social *</label><select id="editPlatform" required><option>Facebook</option><option>Instagram</option><option>WhatsApp</option><option>TikTok</option></select></div><div class="field"><label for="editType">Formato *</label><select id="editType" required><option>Historia</option><option>Post</option><option>Reel</option></select></div><label class="story-replica wide hidden" id="storyReplicaOption"><input type="checkbox" id="storyReplica" disabled><span id="storyReplicaText"></span></label><div class="field"><label for="editStatus">Estado *</label><select id="editStatus" required><option value="draft">Idea / borrador</option><option value="planned">Programado</option><option value="ready">Listo para publicar</option><option value="published">Publicado</option><option value="cancelled">Cancelado</option></select></div><div class="field"><label for="editDate">Fecha *</label><input type="date" id="editDate" required></div><div class="field"><label for="editTime">Hora de publicación</label><input type="time" id="editTime"></div><div class="field wide"><label for="editTitle">Tema / título *</label><input maxlength="130" id="editTitle" placeholder="Ej.: Promo 2x1 en pizzas medianas" required></div><div class="field wide"><label for="editCopy">Texto / copy</label><textarea id="editCopy" rows="3" placeholder="Mensaje, llamado a la acción, hashtags..."></textarea></div><div class="field"><label for="editOwner">Responsable</label><select id="editOwner"><option value="">Sin asignar</option></select></div><div class="field"><label for="editObjective">Objetivo</label><select id="editObjective"><option value="">Sin definir</option><option>Alcance</option><option>Interacción</option><option>Ventas</option><option>Mensajes</option><option>Tráfico</option><option>Seguidores</option></select></div><div class="field wide"><label for="editAsset">Enlace a material creativo</label><input id="editAsset" type="url" placeholder="https://drive.google.com/... (opcional)"></div><div class="field wide"><strong>Adjuntar imágenes</strong>
+<label for="editImageSource">Origen de las imágenes</label>
+<select id="editImageSource"><option value="">Seleccionar origen</option><option value="device">Desde este equipo</option><option value="library">Desde la biblioteca interna</option></select>
+<div id="editDeviceImages" class="hidden"><input id="editImages" aria-label="Imágenes de este equipo" type="file" accept="image/*" multiple aria-describedby="imageHelp"></div>
+<div id="editLibraryGallery" class="image-gallery hidden"></div>
 <small id="imageHelp">Selecciona varias imágenes. Se guardarán como JPEG de 800 × 600 píxeles, con márgenes si hace falta.</small>
 <div id="imagePreviews" class="actions"></div>
 <small id="imageStatus" role="status"></small>
@@ -66,7 +77,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js" integrity="sha384-rwykjmWNwVxboyFmvK9OXN0wj9hnMHA2aAHtits54DuACyCq0M2PrSNxhRb+hvXT" crossorigin="anonymous"></script>
 <script>
-(()=>{'use strict';const KEY='pycChoriMarketingV1',BRANDS=['PYC','Choripizza'],PLATFORMS=['Facebook','Instagram','WhatsApp','TikTok'],TYPES=['Historia','Post','Reel'],LABELS={draft:'Idea / borrador',planned:'Programado',ready:'Listo',published:'Publicado',cancelled:'Cancelado'},DAYS=['dom','lun','mar','mié','jue','vie','sáb'];let items=[],owners=[],periodStart='2026-11-14',periodEnd='2026-11-30',activeView='matrix';const $=id=>document.getElementById(id);const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const localDate=s=>{let [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};const iso=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');const shift=(s,n)=>{let d=localDate(s);d.setDate(d.getDate()+n);return iso(d)};const dates=()=>{let a=[],d=periodStart;while(d<=periodEnd&&a.length<32){a.push(d);d=shift(d,1)}return a};const friendly=s=>{let d=localDate(s);return `${d.getDate()} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][d.getMonth()]} ${d.getFullYear()}`};const showToast=msg=>{let e=$('toast');e.textContent=msg;e.classList.add('show');clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>e.classList.remove('show'),2300)};function load(){try{let a=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(a)?a.filter(valid):[]}catch{return []}}function valid(a){return a&&typeof a==='object'&&typeof a.id==='string'&&BRANDS.includes(a.brand)&&PLATFORMS.includes(a.platform)&&TYPES.includes(a.type)&&/^\d{4}-\d{2}-\d{2}$/.test(a.date)&&Object.keys(LABELS).includes(a.status)}function loadOwners(){try{let v=JSON.parse(localStorage.getItem(KEY+'Owners')||'[]');return Array.isArray(v)?v.filter(x=>x&&typeof x.id==='string'&&typeof x.name==='string'):[]}catch{return []}}function filters(){return {brand:$('filterBrand').value,platform:$('filterPlatform').value,type:$('filterType').value,status:$('filterStatus').value}}function match(i,f){return (f.brand==='all'||i.brand===f.brand)&&(f.platform==='all'||i.platform===f.platform)&&(f.type==='all'||i.type===f.type)&&(f.status==='all'||f.status==='empty'||i.status===f.status)}function relevant(){let f=filters();return items.filter(i=>i.date>=periodStart&&i.date<=periodEnd&&match(i,f)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time))}function available(t){return filters()[t]==='all'?(t==='brand'?BRANDS:t==='platform'?PLATFORMS:TYPES):[filters()[t]]}function render(){const ds=dates(),f=filters(),list=relevant(),possible=ds.length*available('brand').length*available('platform').length*available('type').length;let occupied=new Set(list.map(i=>[i.date,i.brand,i.platform,i.type].join('|')));$('kSlots').textContent=possible;$('kCreated').textContent=f.status==='empty'?0:list.length;$('kPlanned').textContent=list.filter(i=>i.status==='planned'||i.status==='ready').length;$('kPublished').textContent=list.filter(i=>i.status==='published').length;$('kRate').textContent=`${list.length?Math.round(list.filter(i=>i.status==='published').length/list.length*100):0}% de publicaciones registradas`;$('dateTitle').textContent=`${friendly(periodStart)} – ${friendly(periodEnd)}`;renderMatrix(ds,list,f,occupied);renderCalendar(ds,list);renderList(list);renderOwners();if(activeView==="indicators")renderIndicators()}function renderMatrix(ds,list,f,occupied){$('matrixHead').innerHTML='<tr><th>Negocio</th><th>Red social</th>'+ds.map(d=>{let x=localDate(d);return `<th class="${[0,6].includes(x.getDay())?'weekend':''}">${x.getDate()} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][x.getMonth()]}<span class="daynote">${DAYS[x.getDay()]}</span></th>`}).join('')+'</tr>';let out='';for(let type of available('type')){out+=`<tr class="groupbar"><td colspan="${ds.length+2}">${type==='Historia'?'Historias':type==='Post'?'Posts':'Reels'}</td></tr>`;for(let brand of available('brand'))for(let platform of available('platform')){out+=`<tr><td class="brandcell"><span class="brandtag ${brand==='PYC'?'pyc':'chori'}">${esc(brand)}</span></td><td class="socialcell platform-${platform.toLowerCase()}">${platformBadge(platform)}</td>`;for(let d of ds){let cell=list.filter(i=>i.type===type&&i.brand===brand&&i.platform===platform&&i.date===d),weekend=[0,6].includes(localDate(d).getDay());let attrib=`data-date="${d}" data-brand="${brand}" data-platform="${platform}" data-type="${type}"`;let content=cell.length?cell.map((i,index)=>`<button draggable="true" data-id="${esc(i.id)}" class="entry ${i.status} platform-${i.platform.toLowerCase()}" title="${esc(i.title)} · ${esc(i.owner||'Sin responsable')}"><i class="status-dot"></i><span>${esc(i.time?i.time+' ':'')}${esc(i.title)}</span></button>`).join('')+`<button class="slot" style="min-height:18px;font-size:12px" title="Agregar otra publicación">+</button>`:`<button class="slot" title="Agregar publicación">+</button>`;out+=`<td ${attrib} class="${weekend?'weekend':''}">${f.status==='empty'&&cell.length?'':content}</td>`}out+='</tr>'}}$('matrixBody').innerHTML=out||`<tr><td colspan="${ds.length+2}" class="empty">Sin resultados</td></tr>`}function renderCalendar(ds,list){let out='';let offset=localDate(periodStart).getDay();let total=Math.ceil((offset+ds.length)/7)*7;for(let h of ['dom','lun','mar','mié','jue','vie','sáb'])out+=`<div class="calhead">${h.toUpperCase()}</div>`;for(let i=0;i<total;i++){let d=shift(periodStart,i-offset),inside=d>=periodStart&&d<=periodEnd;if(!inside){out+='<div></div>';continue}let group=list.filter(x=>x.date===d);out+=`<div class="calday ${d===iso(new Date())?'today':''}"><div class="calnum">${localDate(d).getDate()}<span class="calcount">${group.length} contenido(s)</span></div>${group.map(x=>`<button data-id="${esc(x.id)}" class="calitem ${x.status} platform-${x.platform.toLowerCase()}"><b>${esc(x.brand)} · ${esc(x.platform)} · ${esc(x.type)}</b><br>${esc(x.time?x.time+' · ':'')}${esc(x.title)}</button>`).join('')}<button class="caladd" data-date="${d}">+ Agregar</button></div>`}$('calendarBody').innerHTML=out}function platformBadge(name){const symbols={Facebook:'f',Instagram:'◎',TikTok:'♪',WhatsApp:'✆'};return `<span class="platform-badge platform-${name.toLowerCase()}"><b>${symbols[name]||'•'}</b> ${esc(name)}</span>`}function renderList(list){$('listBody').innerHTML=list.length?list.map(x=>`<tr><td>${friendly(x.date)}<br><small>${esc(x.time||'Sin hora')}</small></td><td>${esc(x.brand)}</td><td>${platformBadge(x.platform)}</td><td>${esc(x.type)}</td><td><button class="linkbtn" data-id="${esc(x.id)}">${esc(x.title)}</button><br><small style="color:var(--muted)">${esc(x.objective||'')}</small></td><td>${esc(x.owner||'—')}</td><td><span class="pill ${x.status}">${LABELS[x.status]}</span></td><td><button class="btn" data-id="${esc(x.id)}">Editar</button></td></tr>`).join(''):'<tr><td colspan="8" class="empty">No hay publicaciones registradas para estos filtros. Usa “Nueva publicación” para comenzar.</td></tr>'}function replicaPlatform(){
+(()=>{'use strict';const KEY='pycChoriMarketingV1',BRANDS=['PYC','Choripizza'],PLATFORMS=['Facebook','Instagram','WhatsApp','TikTok'],TYPES=['Historia','Post','Reel'],LABELS={draft:'Idea / borrador',planned:'Programado',ready:'Listo',published:'Publicado',cancelled:'Cancelado'},DAYS=['dom','lun','mar','mié','jue','vie','sáb'];let items=[],owners=[],periodStart='2026-11-14',periodEnd='2026-11-30',activeView='matrix';const $=id=>document.getElementById(id);const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const localDate=s=>{let [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};const iso=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');const shift=(s,n)=>{let d=localDate(s);d.setDate(d.getDate()+n);return iso(d)};const dates=()=>{let a=[],d=periodStart;while(d<=periodEnd&&a.length<32){a.push(d);d=shift(d,1)}return a};const friendly=s=>{let d=localDate(s);return `${d.getDate()} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][d.getMonth()]} ${d.getFullYear()}`};const showToast=msg=>{let e=$('toast');e.textContent=msg;e.classList.add('show');clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>e.classList.remove('show'),2300)};function load(){try{let a=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(a)?a.filter(valid):[]}catch{return []}}function valid(a){return a&&typeof a==='object'&&typeof a.id==='string'&&BRANDS.includes(a.brand)&&PLATFORMS.includes(a.platform)&&TYPES.includes(a.type)&&/^\d{4}-\d{2}-\d{2}$/.test(a.date)&&Object.keys(LABELS).includes(a.status)}function loadOwners(){try{let v=JSON.parse(localStorage.getItem(KEY+'Owners')||'[]');return Array.isArray(v)?v.filter(x=>x&&typeof x.id==='string'&&typeof x.name==='string'):[]}catch{return []}}function filters(){return {brand:$('filterBrand').value,platform:$('filterPlatform').value,type:$('filterType').value,status:$('filterStatus').value}}function match(i,f){return (f.brand==='all'||i.brand===f.brand)&&(f.platform==='all'||i.platform===f.platform)&&(f.type==='all'||i.type===f.type)&&(f.status==='all'||f.status==='empty'||i.status===f.status)}function relevant(){let f=filters();return items.filter(i=>i.date>=periodStart&&i.date<=periodEnd&&match(i,f)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time))}function available(t){return filters()[t]==='all'?(t==='brand'?BRANDS:t==='platform'?PLATFORMS:TYPES):[filters()[t]]}function render(){const ds=dates(),f=filters(),list=relevant(),possible=ds.length*available('brand').length*available('platform').length*available('type').length;let occupied=new Set(list.map(i=>[i.date,i.brand,i.platform,i.type].join('|')));$('kSlots').textContent=possible;$('kCreated').textContent=f.status==='empty'?0:list.length;$('kPlanned').textContent=list.filter(i=>i.status==='planned'||i.status==='ready').length;$('kPublished').textContent=list.filter(i=>i.status==='published').length;$('kRate').textContent=`${list.length?Math.round(list.filter(i=>i.status==='published').length/list.length*100):0}% de publicaciones registradas`;$('dateTitle').textContent=`${friendly(periodStart)} – ${friendly(periodEnd)}`;renderMatrix(ds,list,f,occupied);renderCalendar(ds,list);renderList(list);renderOwners();if(activeView==="indicators")renderIndicators()}function renderMatrix(ds,list,f,occupied){$('matrixHead').innerHTML='<tr><th>Negocio</th><th>Red social</th>'+ds.map(d=>{let x=localDate(d);return `<th class="${[0,6].includes(x.getDay())?'weekend':''}">${x.getDate()} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][x.getMonth()]}<span class="daynote">${DAYS[x.getDay()]}</span></th>`}).join('')+'</tr>';let out='';for(let type of available('type')){out+=`<tr class="groupbar"><td colspan="${ds.length+2}">${type==='Historia'?'Historias':type==='Post'?'Posts':'Reels'}</td></tr>`;for(let brand of available('brand'))for(let platform of available('platform')){out+=`<tr><td class="brandcell"><span class="brandtag ${brand==='PYC'?'pyc':'chori'}">${esc(brand)}</span></td><td class="socialcell platform-${platform.toLowerCase()}">${platformBadge(platform)}</td>`;for(let d of ds){let cell=list.filter(i=>i.type===type&&i.brand===brand&&i.platform===platform&&i.date===d),weekend=[0,6].includes(localDate(d).getDay());let attrib=`data-date="${d}" data-brand="${brand}" data-platform="${platform}" data-type="${type}"`;let content=cell.length?cell.map((i,index)=>`<button draggable="true" data-id="${esc(i.id)}" class="entry ${i.status} platform-${i.platform.toLowerCase()}" title="${esc(i.title)} · ${esc(i.owner||'Sin responsable')}"><i class="status-dot"></i><span>${esc(i.time?i.time+' ':'')}${esc(i.title)}</span></button>`).join('')+`<button class="slot" style="min-height:18px;font-size:12px" title="Agregar otra publicación">+</button>`:`<button class="slot" title="Agregar publicación">+</button>`;out+=`<td ${attrib} class="${weekend?'weekend':''}">${f.status==='empty'&&cell.length?'':content}</td>`}out+='</tr>'}}$('matrixBody').innerHTML=out||`<tr><td colspan="${ds.length+2}" class="empty">Sin resultados</td></tr>`}function renderCalendar(ds,list){let out='';let offset=localDate(periodStart).getDay();let total=Math.ceil((offset+ds.length)/7)*7;for(let h of ['dom','lun','mar','mié','jue','vie','sáb'])out+=`<div class="calhead">${h.toUpperCase()}</div>`;for(let i=0;i<total;i++){let d=shift(periodStart,i-offset),inside=d>=periodStart&&d<=periodEnd;if(!inside){out+='<div></div>';continue}let group=list.filter(x=>x.date===d);out+=`<div class="calday ${d===iso(new Date())?'today':''}"><div class="calnum">${localDate(d).getDate()}<span class="calcount">${group.length} contenido(s)</span></div>${group.map(x=>`<button data-id="${esc(x.id)}" class="calitem ${x.status} platform-${x.platform.toLowerCase()}"><b>${esc(x.brand)} · ${esc(x.platform)} · ${esc(x.type)}</b><br>${esc(x.time?x.time+' · ':'')}${esc(x.title)}${calendarThumbnails(x.attachments)}</button>`).join('')}<button class="caladd" data-date="${d}">+ Agregar</button></div>`}$('calendarBody').innerHTML=out;if(activeView==='calendar')void populateCalendarImages()}function platformBadge(name){const symbols={Facebook:'f',Instagram:'◎',TikTok:'♪',WhatsApp:'✆'};return `<span class="platform-badge platform-${name.toLowerCase()}"><b>${symbols[name]||'•'}</b> ${esc(name)}</span>`}function renderList(list){$('listBody').innerHTML=list.length?list.map(x=>`<tr><td>${friendly(x.date)}<br><small>${esc(x.time||'Sin hora')}</small></td><td>${esc(x.brand)}</td><td>${platformBadge(x.platform)}</td><td>${esc(x.type)}</td><td><button class="linkbtn" data-id="${esc(x.id)}">${esc(x.title)}</button><br><small style="color:var(--muted)">${esc(x.objective||'')}</small></td><td>${esc(x.owner||'—')}</td><td><span class="pill ${x.status}">${LABELS[x.status]}</span></td><td><button class="btn" data-id="${esc(x.id)}">Editar</button></td></tr>`).join(''):'<tr><td colspan="8" class="empty">No hay publicaciones registradas para estos filtros. Usa “Nueva publicación” para comenzar.</td></tr>'}function replicaPlatform(){
   if ($('editId').value || $('editType').value !== 'Historia') return '';
   const platform = $('editPlatform').value;
   if (platform === 'Facebook') return 'Instagram';
@@ -119,7 +130,7 @@ $('deletePost').classList.toggle('hidden',!x.id);$('duplicatePost').classList.to
   render();
   showToast(otherPlatform ? 'Historia registrada en Facebook e Instagram' : 'Publicación guardada');
 });$('deletePost').onclick=async()=>{let id=$('editId').value;if(!id||!confirm('¿Eliminar esta publicación definitivamente?'))return;if(!await saveShared(items.filter(i=>i.id!==id)))return;closeEditor();render();showToast('Publicación eliminada')};$('duplicatePost').onclick=()=>{let x=formData();x.id='';x.title=x.title+' (copia)';x.attachments=attachments.filter(image=>image.path).map(image=>image.path);openEditor(x);showToast('Duplicado: ajusta los datos y guarda')};$('cancelEdit').onclick=closeEditor;$('backdrop').addEventListener('click',e=>{if(e.target===$('backdrop'))closeEditor()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeEditor()});$('newPost').onclick=()=>openEditor();$('listNew').onclick=()=>openEditor();$('matrixBody').addEventListener('click',e=>{let b=e.target.closest('button');if(!b)return;let item=b.dataset.id;if(item)return openEditor(items.find(i=>i.id===item));let cell=b.closest('td');if(cell)openEditor({date:cell.dataset.date,brand:cell.dataset.brand,platform:cell.dataset.platform,type:cell.dataset.type})});$('calendarBody').addEventListener('click',e=>{let b=e.target.closest('button');if(!b)return;if(b.dataset.id)openEditor(items.find(i=>i.id===b.dataset.id));else if(b.dataset.date)openEditor({date:b.dataset.date})});$('listBody').addEventListener('click',e=>{let b=e.target.closest('[data-id]');if(b)openEditor(items.find(i=>i.id===b.dataset.id))});let dragging=null;$('matrixBody').addEventListener('dragstart',e=>{let b=e.target.closest('[data-id]');if(!b)return;dragging=b.dataset.id;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragging)});$('matrixBody').addEventListener('dragover',e=>{let cell=e.target.closest('td[data-date]');if(!cell||!dragging)return;let x=items.find(i=>i.id===dragging);if(x&&x.brand===cell.dataset.brand&&x.platform===cell.dataset.platform&&x.type===cell.dataset.type){e.preventDefault();cell.classList.add('dropover')}});$('matrixBody').addEventListener('dragleave',e=>{let cell=e.target.closest('td[data-date]');if(cell)cell.classList.remove('dropover')});$('matrixBody').addEventListener('drop',async e=>{let cell=e.target.closest('td[data-date]');document.querySelectorAll('.dropover').forEach(x=>x.classList.remove('dropover'));if(!cell||!dragging)return;let x=items.find(i=>i.id===dragging);if(x&&x.brand===cell.dataset.brand&&x.platform===cell.dataset.platform&&x.type===cell.dataset.type){e.preventDefault();const changed=items.map(item=>item.id===x.id?{...item,date:cell.dataset.date}:item);
-if(await saveShared(changed))showToast('Publicación reprogramada')}dragging=null});$('matrixBody').addEventListener('dragend',()=>{dragging=null;document.querySelectorAll('.dropover').forEach(x=>x.classList.remove('dropover'))});document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{activeView=b.dataset.view;document.querySelectorAll('.navbtn').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+activeView));render()});for(let id of ['filterBrand','filterPlatform','filterType','filterStatus'])$(id).addEventListener('change',render);$('clearFilters').onclick=()=>{for(let id of ['filterBrand','filterPlatform','filterType','filterStatus'])$(id).value='all';render()};function periodMove(n){let d=localDate(periodStart);d.setMonth(d.getMonth()+n);let y=d.getFullYear(),m=d.getMonth();periodStart=iso(new Date(y,m,1));periodEnd=iso(new Date(y,m+1,0));render()}$('prevPeriod').onclick=()=>periodMove(-1);$('nextPeriod').onclick=()=>periodMove(1);$('nowPeriod').onclick=()=>{periodStart='2026-11-14';periodEnd='2026-11-30';render()};function download(text,name,mime){let blob=new Blob([text],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}$('exportJSON').onclick=()=>download(JSON.stringify({app:'PYC-Choripizza-Editorial',version:2,exportedAt:new Date().toISOString(),publications:items,responsables:owners},null,2),'respaldo_editorial_pyc_choripizza.json','application/json;charset=utf-8');$('importJSON').onclick=()=>$('fileImport').click();$('fileImport').onchange = async e => {
+if(await saveShared(changed))showToast('Publicación reprogramada')}dragging=null});$('matrixBody').addEventListener('dragend',()=>{dragging=null;document.querySelectorAll('.dropover').forEach(x=>x.classList.remove('dropover'))});document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{activeView=b.dataset.view;document.querySelectorAll('.navbtn').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+activeView));render();if(activeView==='images')void loadLibraryGallery(false)});for(let id of ['filterBrand','filterPlatform','filterType','filterStatus'])$(id).addEventListener('change',render);$('clearFilters').onclick=()=>{for(let id of ['filterBrand','filterPlatform','filterType','filterStatus'])$(id).value='all';render()};function periodMove(n){let d=localDate(periodStart);d.setMonth(d.getMonth()+n);let y=d.getFullYear(),m=d.getMonth();periodStart=iso(new Date(y,m,1));periodEnd=iso(new Date(y,m+1,0));render()}$('prevPeriod').onclick=()=>periodMove(-1);$('nextPeriod').onclick=()=>periodMove(1);$('nowPeriod').onclick=()=>{periodStart='2026-11-14';periodEnd='2026-11-30';render()};function download(text,name,mime){let blob=new Blob([text],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}$('exportJSON').onclick=()=>download(JSON.stringify({app:'PYC-Choripizza-Editorial',version:2,exportedAt:new Date().toISOString(),publications:items,responsables:owners},null,2),'respaldo_editorial_pyc_choripizza.json','application/json;charset=utf-8');$('importJSON').onclick=()=>$('fileImport').click();$('fileImport').onchange = async e => {
   const file = e.target.files[0];
   if (!file) return;
   try {
@@ -221,7 +232,8 @@ const db = window.supabase?.createClient(
 );
 const stateTable = 'social_planner_state';
 const attachmentBucket = 'pyc-planner-images';
-const imagePath = /^[a-f0-9-]{36}\.jpg$/i;
+const libraryPrefix = 'library/';
+const imagePath = /^(?:library\/)?[a-f0-9-]{36}(?:--[a-z0-9-]{1,70})?\.jpg$/i;
 let attachments = [];
 let processingImages = false;
 let attachmentVersion = 0;
@@ -232,6 +244,11 @@ function resetAttachments(paths) {
   for (const image of attachments) if (image.preview) URL.revokeObjectURL(image.preview);
   attachments = Array.isArray(paths) ? paths.filter(path => typeof path === 'string' && imagePath.test(path)).map(path => ({path})) : [];
   $('editImages').value = '';
+  $('editImageSource').value = '';
+  $('editDeviceImages').classList.add('hidden');
+  $('editLibraryGallery').classList.add('hidden');
+  libraryPickerRequest++;
+  $('editLibraryGallery').replaceChildren();
   $('imageStatus').textContent = '';
   if ($('backdrop').classList.contains('open') || attachments.length) void renderAttachments();
   else $('imagePreviews').replaceChildren();
@@ -265,7 +282,7 @@ async function resizeAttachment(file) {
 async function renderAttachments() {
   const version = ++attachmentVersion;
   const container = $('imagePreviews');
-  const paths = [...new Set(attachments.filter(image=>image.path && !image.preview).map(image=>image.path))];
+  const paths = attachments.filter(image=>image.path && !image.preview).map(image=>image.path);
   container.replaceChildren();
   const previews = attachments.map((image,index) => {
     const card = document.createElement('div');
@@ -285,6 +302,7 @@ async function renderAttachments() {
       if (image.preview) URL.revokeObjectURL(image.preview);
       attachments = attachments.filter(candidate=>candidate!==image);
       void renderAttachments();
+      if ($('editImageSource').value === 'library') void loadLibraryGallery(true);
     };
     card.append(thumbnail,remove);
     container.append(card);
@@ -292,10 +310,8 @@ async function renderAttachments() {
   });
   if (!paths.length) return;
   try {
-    const {data,error} = await db.storage.from(attachmentBucket).createSignedUrls(paths,300);
-    if (error) throw error;
+    const urls = await signedImageUrls(paths);
     if (version !== attachmentVersion) return;
-    const urls = new Map(data.map(entry=>[entry.path,entry.signedUrl]));
     for (const {image,thumbnail} of previews) {
       const url = urls.get(image.path);
       if (url && !image.preview) thumbnail.src = url;
@@ -326,6 +342,149 @@ $('editImages').addEventListener('change', async event => {
   processingImages = false;
   $('imageStatus').textContent = errors ? errors + ' imagen(es) no se pudieron convertir.' : '';
   void renderAttachments();
+});
+
+let libraryPickerRequest = 0;
+let libraryPageRequest = 0;
+
+function calendarThumbnails(paths) {
+  if (!Array.isArray(paths)) return '';
+  return '<span class="calendar-images">' + paths.filter(path=>typeof path==='string' && imagePath.test(path)).map((path,index)=>
+    '<img class="calendar-image" loading="lazy" alt="Adjunto '+(index+1)+'" data-calendar-image="'+esc(path)+'">').join('') + '</span>';
+}
+
+async function signedImageUrls(paths) {
+  const unique = [...new Set(paths)];
+  const urls = new Map();
+  for (let offset = 0; offset < unique.length; offset += 50) {
+    const {data,error} = await db.storage.from(attachmentBucket).createSignedUrls(unique.slice(offset,offset+50),300);
+    if (error) throw error;
+    for (const entry of data) if (entry.signedUrl) urls.set(entry.path,entry.signedUrl);
+  }
+  return urls;
+}
+
+async function populateCalendarImages() {
+  const images = [...$('calendarBody').querySelectorAll('[data-calendar-image]')];
+  if (!images.length) return;
+  try {
+    const urls = await signedImageUrls(images.map(image=>image.dataset.calendarImage));
+    for (const image of images) {
+      const url = urls.get(image.dataset.calendarImage);
+      if (url && image.isConnected) image.src = url;
+    }
+  } catch {
+    for (const image of images) if (image.isConnected) image.alt = 'Vista previa no disponible';
+  }
+}
+
+function galleryLabel(path) {
+  return path.split('--')[1]?.replace(/\.jpg$/i,'').replaceAll('-',' ') || 'Imagen';
+}
+
+async function loadLibraryGallery(picker, offset = 0) {
+  const ticket = picker ? ++libraryPickerRequest : ++libraryPageRequest;
+  const container = $(picker ? 'editLibraryGallery' : 'libraryGallery');
+  const current = () => ticket === (picker ? libraryPickerRequest : libraryPageRequest);
+  container.textContent = 'Cargando imágenes…';
+  const limit = 30;
+  try {
+    const {data,error} = await db.storage.from(attachmentBucket).list('library',{limit:limit+1,offset,sortBy:{column:'created_at',order:'desc'}});
+    if (error) throw error;
+    if (!current()) return;
+    const paths = data.slice(0,limit).map(file=>libraryPrefix+file.name).filter(path=>imagePath.test(path));
+    const urls = await signedImageUrls(paths);
+    if (!current()) return;
+    container.replaceChildren();
+    if (!paths.length) container.textContent = 'La biblioteca aún no tiene imágenes.';
+    for (const path of paths) {
+      const card = document.createElement('figure');
+      const image = document.createElement('img');
+      image.loading = 'lazy';
+      image.alt = galleryLabel(path);
+      const url = urls.get(path);
+      if (url) image.src = url;
+      const caption = document.createElement('figcaption');
+      caption.textContent = galleryLabel(path);
+      card.append(image,caption);
+      if (picker) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn';
+        const refresh = () => {
+          button.disabled = attachments.some(attachment=>attachment.path===path);
+          button.textContent = button.disabled ? 'Adjuntada' : 'Adjuntar';
+        };
+        refresh();
+        button.onclick = () => {
+          if (pending || processingImages || attachments.some(attachment=>attachment.path===path)) return;
+          attachments.push({path});
+          refresh();
+          void renderAttachments();
+        };
+        card.append(button);
+      } else if (url) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.append(image);
+        card.prepend(link);
+      }
+      container.append(card);
+    }
+    for (const [label,next,visible] of [['Anterior',offset-limit,offset>0],['Siguiente',offset+limit,data.length>limit]]) {
+      if (!visible) continue;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn';
+      button.textContent = label;
+      button.onclick = () => loadLibraryGallery(picker,next);
+      container.append(button);
+    }
+  } catch {
+    if (current()) container.textContent = 'No se pudo cargar la biblioteca. Vuelve a abrir la vista.';
+  }
+}
+
+$('editImageSource').addEventListener('change', event => {
+  const source = event.target.value;
+  $('editDeviceImages').classList.toggle('hidden',source!=='device');
+  $('editLibraryGallery').classList.toggle('hidden',source!=='library');
+  if (source === 'library') void loadLibraryGallery(true);
+  else libraryPickerRequest++;
+});
+
+$('libraryFiles').addEventListener('change', async event => {
+  const input = event.target;
+  const files = Array.from(input.files);
+  input.value = '';
+  if (!files.length || pending) return;
+  setPending(true);
+  let uploaded = 0;
+  const failed = [];
+  const feedback = $('libraryStatus');
+  feedback.textContent = 'Preparando y subiendo imágenes…';
+  try {
+    for (const file of files) {
+      try {
+        const blob = await resizeAttachment(file);
+        const label = file.name.replace(/\.[^.]+$/,'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+          .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,70) || 'imagen';
+        const path = libraryPrefix + crypto.randomUUID() + '--' + label + '.jpg';
+        const {error} = await db.storage.from(attachmentBucket).upload(path,blob,{contentType:'image/jpeg',upsert:false});
+        if (error) throw error;
+        uploaded++;
+      } catch {
+        failed.push(file.name);
+      }
+    }
+    feedback.textContent = uploaded+' de '+files.length+' imágenes guardadas.' +
+      (failed.length ? ' No se pudieron guardar: '+failed.join(', ')+'.' : '');
+    await loadLibraryGallery(false);
+  } finally {
+    setPending(false);
+  }
 });
 
 async function uploadAttachments() {

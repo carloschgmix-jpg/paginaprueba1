@@ -83,7 +83,14 @@ function refreshStoryReplica(){
 for (const id of ['editPlatform', 'editType']) {
   $(id).addEventListener('change', refreshStoryReplica);
 }
-function openEditor(data={}){let x=data||{};$('modalTitle').textContent=x.id?'Editar publicación':'Nueva publicación';for(let [id,v] of Object.entries({editId:x.id||'',editBrand:x.brand||($('filterBrand').value==='all'?'PYC':$('filterBrand').value),editPlatform:x.platform||($('filterPlatform').value==='all'?'Facebook':$('filterPlatform').value),editType:x.type||($('filterType').value==='all'?'Historia':$('filterType').value),editStatus:x.status||'draft',editDate:x.date||periodStart,editTime:x.time||'',editTitle:x.title||'',editCopy:x.copy||'',editOwner:x.owner||'',editObjective:x.objective||'',editAsset:x.asset||'',editNotes:x.notes||''}))$(id).value=v;refreshOwnerOptions(x.owner||'');
+function tomorrowInPeru(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Lima', year: 'numeric', month: 'numeric', day: 'numeric'
+  }).formatToParts(now);
+  const {year, month, day} = Object.fromEntries(parts.map(({type,value})=>[type,Number(value)]));
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+}
+function openEditor(data={}){let x=data||{};$('modalTitle').textContent=x.id?'Editar publicación':'Nueva publicación';for(let [id,v] of Object.entries({editId:x.id||'',editBrand:x.brand||($('filterBrand').value==='all'?'PYC':$('filterBrand').value),editPlatform:x.platform||($('filterPlatform').value==='all'?'Facebook':$('filterPlatform').value),editType:x.type||($('filterType').value==='all'?'Historia':$('filterType').value),editStatus:x.status||'draft',editDate:x.id && x.date ? x.date : tomorrowInPeru(),editTime:x.time||'',editTitle:x.title||'',editCopy:x.copy||'',editOwner:x.owner||'',editObjective:x.objective||'',editAsset:x.asset||'',editNotes:x.notes||''}))$(id).value=v;refreshOwnerOptions(x.owner||'');
 $('storyReplica').checked = false;
 refreshStoryReplica();
 resetAttachments(x.attachments);

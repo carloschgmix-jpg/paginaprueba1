@@ -375,8 +375,6 @@ function renderIndicators() {
     (note ? '<div class="sub">'+esc(note)+'</div>' : '')+'</div>').join('');
   const groups = [
     ['Por negocio','Negocio',item=>item.brand],
-    ['Por red social y formato','Red y formato',item=>item.platform+' · '+item.type],
-    ['Por responsable','Responsable',item=>(item.owner||'').trim()||'Sin responsable'],
     ['Por mes','Mes',item=>item.date.slice(0,7)]
   ];
   $('indicatorTables').innerHTML = groups.map(([title,label,key]) => {

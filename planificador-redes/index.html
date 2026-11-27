@@ -69,9 +69,9 @@
 </div>
 </section>
 <section class="view" id="view-settings" aria-labelledby="goalsTitle">
-<div class="panel"><div class="panelhead"><h2 id="goalsTitle">Metas por negocio</h2></div>
-<form id="goalsForm" style="padding:16px">
-<div class="scroll"><table class="listing" style="min-width:440px"><thead><tr><th scope="col">Negocio</th><th scope="col">Historias por día</th><th scope="col">Posts por quincena</th><th scope="col">Reels por quincena</th></tr></thead><tbody id="goalsFields"></tbody></table></div>
+<div class="panel"><div class="panelhead"><h2 id="goalsTitle">Metas por negocio y red social</h2></div>
+<form id="goalsForm" style="padding:16px"><p class="subtitle" style="margin-bottom:12px">Usa 0 para dejar un formato sin meta en esa red.</p>
+<div class="scroll"><table class="listing" style="min-width:440px"><thead><tr><th scope="col">Negocio</th><th scope="col">Red social</th><th scope="col">Historias por día</th><th scope="col">Posts por quincena</th><th scope="col">Reels por quincena</th></tr></thead><tbody id="goalsFields"></tbody></table></div>
 <div class="actions" style="margin-top:16px"><button class="btn primary" id="saveGoals" type="submit">Guardar metas</button><button class="btn" id="reloadGoals" type="button">Recargar metas</button></div>
 <p id="goalsStatus" role="status"></p>
 </form></div></section></main></div>
@@ -269,55 +269,82 @@ function fortnightUnits(from, until) {
     fraction(last,last.start,Date.parse(until));
 }
 
-function dailyStoryGoal(targets) {
-  return [1,2,3].includes(targets.HistoriaDiaria) ? targets.HistoriaDiaria : 1;
+function networkTargets(targets, network) {
+  return targets.networks?.[network] ?? targets;
 }
-function dailyStoryBreakdown(records, from, until, goal) {
-  const byDate = new Map();
+function goalValue(targets, key) {
+  return targets[key] ?? (key === 'HistoriaDiaria' ? 1 : 0);
+}
+function networksFor(selection) {
+  return selection === 'all' ? PLATFORMS : [selection];
+}
+function dailyStoryBreakdown(records, from, until, targets, networks) {
+  const countsByDate = new Map();
   for (const item of records) {
-    if (item.type === 'Historia' && item.status === 'planned') {
-      byDate.set(item.date,(byDate.get(item.date)||0)+1);
-    }
+    if (item.type !== 'Historia' || item.status !== 'planned') continue;
+    const key = item.date+'|'+item.platform;
+    countsByDate.set(key,(countsByDate.get(key)||0)+1);
   }
+  const goals = networks.map(network=>[network,goalValue(networkTargets(targets,network),'HistoriaDiaria')]);
+  const goal = goals.reduce((total,[,amount])=>total+amount,0);
   const rows = [];
   let covered = 0;
   let credited = 0;
   for (let time = Date.parse(from); time <= Date.parse(until); time += 86400000) {
     const date = new Date(time).toISOString().slice(0,10);
-    const planned = byDate.get(date) || 0;
-    const missing = Math.max(0,goal-planned);
-    if (!missing) covered++;
-    credited += Math.min(goal,planned);
-    rows.push([friendly(date),goal,planned,missing,missing ? 'Pendiente' : 'Cumplida']);
+    let planned = 0;
+    let missing = 0;
+    for (const [network,amount] of goals) {
+      const count = countsByDate.get(date+'|'+network)||0;
+      planned += count;
+      missing += Math.max(0,amount-count);
+    }
+    if (goal && !missing) covered++;
+    credited += goal-missing;
+    rows.push([friendly(date),goal,planned,missing,!goal?'Sin meta':missing?'Pendiente':'Cumplida']);
   }
   return {rows,covered,credited};
 }
 function dailyStoryTotals(days) {
   const [goal,planned,missing] = days.rows.reduce(([goal,planned,missing],row)=>
     [goal+row[1],planned+row[2],missing+row[3]],[0,0,0]);
-  return ['Total del período',goal,planned,missing,days.covered+' de '+days.rows.length+' días cumplidos'];
+  return ['Total del período',goal,planned,missing,goal?days.covered+' de '+days.rows.length+' días cumplidos':'Sin meta'];
 }
-function publicationGoals(records, units, format, targets, daily) {
-  const planned = {Historia:0,Post:0,Reel:0};
-  for (const item of records) if (item.status === 'planned') planned[item.type]++;
-  return GOAL_FORMATS.filter(([type]) => format === 'all' || format === type).map(([type,label]) => {
-    const isStory = type === 'Historia';
-    const goal = isStory ? daily.rows.length*dailyStoryGoal(targets) : Math.ceil(Math.round(targets[type]*units*1e9)/1e9);
-    const credited = isStory ? daily.credited : planned[type];
-    return [label,goal,planned[type],Math.max(0,goal-credited),
-      goal ? Math.round(credited/goal*100)+'%' : '—'];
+function publicationGoals(records, units, format, targets, networks, daily) {
+  return GOAL_FORMATS.filter(([type])=>format==='all'||format===type).map(([type,label])=>{
+    let goal=0, planned=0, missing=0;
+    if (type === 'Historia') {
+      [,goal,planned,missing] = dailyStoryTotals(daily);
+    } else {
+      for (const network of networks) {
+        const target = goalValue(networkTargets(targets,network),type);
+        const networkGoal = Math.ceil(Math.round(target*units*1e9)/1e9);
+        const count = records.filter(item=>item.type===type&&item.platform===network&&item.status==='planned').length;
+        goal += networkGoal;
+        planned += count;
+        missing += Math.max(0,networkGoal-count);
+      }
+    }
+    return [label,goal,planned,missing,goal?Math.round((goal-missing)/goal*100)+'%':'—'];
   });
 }
 
+function goalFieldId(brand,network,type) {
+  return 'goal'+brand+network+type;
+}
 function renderGoalFields() {
-  $('goalsFields').innerHTML = BRANDS.map(brand=>'<tr><th scope="row">'+esc(brand)+'</th>'+
-    GOAL_FORMATS.map(([type,label])=>{
-      const input = '<input type="number" required step="1" id="goal'+brand+type+'" aria-label="'+esc(label+' de '+brand)+'" ';
-      const limits = type==='Historia' ? 'min="1" max="3"' : 'min="0" max="1000000"';
-      const targets = goalsState?.targets[brand];
-      const value = !targets ? '' : type==='Historia' ? dailyStoryGoal(targets) : targets[type];
-      return '<td class="field" style="display:table-cell">'+input+limits+' value="'+esc(value)+'" '+(!canEditGoals || !goalsState ? 'disabled' : '')+'></td>';
-    }).join('')+'</tr>').join('');
+  $('goalsFields').innerHTML = BRANDS.flatMap(brand=>PLATFORMS.map(network=>{
+    const targets = goalsState ? networkTargets(goalsState.targets[brand],network) : null;
+    return '<tr><th scope="row">'+esc(brand)+'</th><td>'+esc(network)+'</td>'+
+      GOAL_FORMATS.map(([type,label])=>{
+        const key = type==='Historia'?'HistoriaDiaria':type;
+        const value = targets ? goalValue(targets,key) : '';
+        const max = type==='Historia' ? 3 : 1000000;
+        return '<td class="field" style="display:table-cell"><input type="number" required min="0" max="'+max+
+          '" step="1" id="'+esc(goalFieldId(brand,network,type))+'" aria-label="'+esc(label+' de '+brand+' en '+network)+
+          '" value="'+esc(value)+'" '+(!canEditGoals || !goalsState ? 'disabled' : '')+'></td>';
+      }).join('')+'</tr>';
+  })).join('');
   $('saveGoals').disabled = !canEditGoals || !goalsState;
 }
 
@@ -350,7 +377,11 @@ $('goalsForm').addEventListener('submit',async event=>{
   if (pending || !canEditGoals || !goalsState) return;
   const expected = goalsEditRevision ?? goalsState.revision;
   if (expected !== goalsState.revision) return;
-  const targets = Object.fromEntries(BRANDS.map(brand=>[brand,{...goalsState.targets[brand],...Object.fromEntries(GOAL_FORMATS.map(([type])=>[type==='Historia'?'HistoriaDiaria':type,$('goal'+brand+type).valueAsNumber]))}]));
+  const targets = Object.fromEntries(BRANDS.map(brand=>[brand,{
+    ...goalsState.targets[brand],
+    networks:Object.fromEntries(PLATFORMS.map(network=>[network,Object.fromEntries(GOAL_FORMATS.map(([type])=>
+      [type==='Historia'?'HistoriaDiaria':type,$(goalFieldId(brand,network,type)).valueAsNumber]))]))
+  }]));
   setPending(true);
   try {
     const {data,error} = await db.from('social_planner_goals').update({targets,revision:expected+1})
@@ -417,8 +448,9 @@ function renderIndicators() {
         match(item,{...filtersForReport,brand,status:'all'}));
       const targets = goalsState.targets[brand];
       const includesStories = ['all','Historia'].includes(filtersForReport.type);
-      const daily = includesStories ? dailyStoryBreakdown(scheduled,from,until,dailyStoryGoal(targets)) : null;
-      const rows = publicationGoals(scheduled,units,filtersForReport.type,targets,daily);
+      const networks = networksFor(filtersForReport.platform);
+      const daily = includesStories ? dailyStoryBreakdown(scheduled,from,until,targets,networks) : null;
+      const rows = publicationGoals(scheduled,units,filtersForReport.type,targets,networks,daily);
       let detail = '';
       if (daily) {
         const network = storyNetworks.get(brand) ?? filtersForReport.platform;
@@ -426,15 +458,15 @@ function renderIndicators() {
           items.filter(item=>item.date>=from && item.date<=until &&
             match(item,{brand,platform:network,type:'Historia',status:'planned'}));
         const storyDays = network === filtersForReport.platform ? daily :
-          dailyStoryBreakdown(storyRecords,from,until,dailyStoryGoal(targets));
-        detail = '<p class="subtitle" style="margin:0 0 12px">'+storyDays.covered+' de '+storyDays.rows.length+
-          ' días cumplieron la meta de historias. Los excedentes de un día no cubren otros días.</p>'+
+          dailyStoryBreakdown(storyRecords,from,until,targets,networksFor(network));
+        const detailTotals = dailyStoryTotals(storyDays);
+        detail = '<p class="subtitle" style="margin:0 0 12px">'+esc(detailTotals[4])+'.</p>'+
           indicatorTable('Historias por día · '+brand,['Fecha','Meta diaria','Programadas','Faltan programar','Cumplimiento'],
-            storyDays.rows,storyNetworkButtons(brand,network),dailyStoryTotals(storyDays));
+            storyDays.rows,storyNetworkButtons(brand,network),detailTotals);
       }
       return indicatorTable('Cuánto falta programar · '+brand,
         ['Formato','Meta','Programados','Faltan programar','Avance'],rows)+detail;
-    }).join('')+'<p class="subtitle" style="margin:0 0 16px">Las metas de posts y reels se prorratean en quincenas parciales y se redondean hacia arriba.</p>';
+    }).join('')+'<p class="subtitle" style="margin:0 0 16px">El avance se calcula por red. Los excedentes no cubren faltantes de otras redes ni de otras fechas en historias. Las metas de posts y reels se prorratean en quincenas parciales.</p>';
   } else {
     $('publicationGoals').textContent = 'Metas no disponibles. Abre Configuración y pulsa Recargar metas.';
   }

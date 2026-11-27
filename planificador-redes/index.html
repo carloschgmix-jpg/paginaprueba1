@@ -34,7 +34,7 @@
 <p id="plannerLoginStatus" role="status" style="margin:12px 0 0"></p>
 </section>
 <div id="plannerApp" class="hidden">
-<div class="shell"><aside class="side"><div class="logo">PYC <span style="color:#f2ae6b">&</span> CHORIPIZZA<small>Marketing Studio</small></div><nav style="display:contents"><button class="navbtn active" data-view="matrix"><span>▦</span> Matriz editorial</button><button class="navbtn" data-view="calendar"><span>▤</span> Calendario</button><button class="navbtn" data-view="list"><span>☷</span> Publicaciones</button><button class="navbtn" data-view="images">▧ Imágenes</button><button class="navbtn" data-view="indicators"><span aria-hidden="true">▥</span> Indicadores</button><button class="navbtn" data-view="owners"><span>♙</span> Responsables</button></nav><div class="sidefooter">El calendario se guarda en Supabase y se sincroniza entre los equipos con acceso. Exporta una copia JSON si quieres conservar un respaldo. La publicación en redes sociales se realiza por separado.</div></aside><main class="main"><header class="top"><div><div class="eyebrow">Gestión de contenido · 2 negocios · 4 redes sociales</div><h1>Planificador de redes sociales</h1><p class="subtitle">Organiza historias, posts y reels en una sola vista. Noviembre 2026.</p></div><div class="actions"><button type="button" class="btn hidden" id="plannerBringLocal">Recuperar registros de este navegador</button>
+<div class="shell"><aside class="side"><div class="logo">PYC <span style="color:#f2ae6b">&</span> CHORIPIZZA<small>Marketing Studio</small></div><nav style="display:contents"><button class="navbtn active" data-view="matrix"><span>▦</span> Matriz editorial</button><button class="navbtn" data-view="calendar"><span>▤</span> Calendario</button><button class="navbtn" data-view="list"><span>☷</span> Publicaciones</button><button class="navbtn" data-view="indicators"><span aria-hidden="true">▥</span> Indicadores</button><button class="navbtn" data-view="images">▧ Imágenes</button><button class="navbtn" data-view="owners"><span>♙</span> Responsables</button></nav><div class="sidefooter">El calendario se guarda en Supabase y se sincroniza entre los equipos con acceso. Exporta una copia JSON si quieres conservar un respaldo. La publicación en redes sociales se realiza por separado.</div></aside><main class="main"><header class="top"><div><div class="eyebrow">Gestión de contenido · 2 negocios · 4 redes sociales</div><h1>Planificador de redes sociales</h1><p class="subtitle">Organiza historias, posts y reels en una sola vista. Noviembre 2026.</p></div><div class="actions"><button type="button" class="btn hidden" id="plannerBringLocal">Recuperar registros de este navegador</button>
 <button type="button" class="btn" id="plannerRefresh">Actualizar calendario</button>
 <button type="button" class="btn" id="plannerSignOut">Cerrar sesión</button><button class="btn" id="exportJSON">↓ Respaldo JSON</button><button class="btn" id="importJSON">↑ Importar</button><button class="btn" id="exportCSV">↓ CSV</button><button class="btn primary" id="newPost">＋ Nueva publicación</button><input type="file" accept=".json,application/json" id="fileImport" class="hidden"></div></header>
 <section class="toolbar"><div class="field"><label>Negocio</label><select id="filterBrand"><option value="all">Ambos negocios</option><option>PYC</option><option>Choripizza</option></select></div><div class="field"><label>Red social</label><select id="filterPlatform"><option value="all">Todas las redes</option><option>Facebook</option><option>Instagram</option><option>WhatsApp</option><option>TikTok</option></select></div><div class="field"><label>Formato</label><select id="filterType"><option value="all">Todos los formatos</option><option>Historia</option><option>Post</option><option>Reel</option></select></div><div class="field"><label>Estado</label><select id="filterStatus"><option value="all">Todos los estados</option><option value="empty">Sin programar</option><option value="draft">Idea / borrador</option><option value="planned">Programado</option><option value="ready">Listo para publicar</option><option value="published">Publicado</option><option value="cancelled">Cancelado</option></select></div><div class="date-nav"><button class="btn" id="prevPeriod" title="Periodo anterior">‹</button><strong id="dateTitle">14–30 nov 2026</strong><button class="btn" id="nextPeriod" title="Periodo siguiente">›</button><button class="btn" id="nowPeriod">Nov. 2026</button></div><button class="btn" id="clearFilters">Limpiar filtros</button></section>
@@ -61,7 +61,7 @@
 </section>
 <p class="hidden" id="indicatorError" role="status"></p>
 <div id="indicatorReport">
-<div class="cards" id="indicatorCards"></div>
+<div id="publicationGoals"></div><div class="cards" id="indicatorCards"></div>
 <div id="indicatorTables"></div>
 </div>
 </section></main></div>
@@ -173,6 +173,20 @@ function indicatorTable(title, columns, rows) {
     (body || '<tr><td colspan="'+columns.length+'" class="empty">Sin registros en el período</td></tr>')+'</tbody></table></div></section>';
 }
 
+function publicationGoals(records, from, until, format) {
+  const days = Math.round((Date.parse(until) - Date.parse(from)) / 86400000) + 1;
+  const halfMonth = date => {
+    const [year, month, day] = date.split('-').map(Number);
+    return (year * 12 + month - 1) * 2 + Number(day > 15);
+  };
+  const published = {Historia:0, Post:0, Reel:0};
+  for (const item of records) if (item.status === 'published') published[item.type]++;
+  return [['Historia','Historias',days],['Post','Posts',Math.ceil(days / 7)],
+    ['Reel','Reels',halfMonth(until)-halfMonth(from)+1]]
+    .filter(([type]) => format === 'all' || format === type)
+    .map(([type,label,goal]) => [label,goal,published[type],Math.max(0,goal-published[type])]);
+}
+
 function renderIndicators() {
   const from = $('indicatorFrom').value || periodStart;
   const until = $('indicatorUntil').value || periodEnd;
@@ -186,6 +200,11 @@ function renderIndicators() {
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone:'America/Lima', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
   const records = filtersForReport.status === 'empty' ? [] :
     items.filter(item => item.date >= from && item.date <= until && match(item, filtersForReport));
+  const goals = publicationGoals(items.filter(item => item.date >= from && item.date <= until &&
+    match(item, {...filtersForReport,status:'all'})), from, until, filtersForReport.type);
+  $('publicationGoals').innerHTML = indicatorTable('Cuánto falta publicar',
+    ['Formato','Meta','Publicados','Faltan publicar'],goals) +
+    '<p class="subtitle" style="margin:0 0 16px">Meta conjunta para los negocios y redes filtrados. Se cuenta una historia por día, un post por cada bloque de 7 días (incluidos los bloques parciales) y un reel por cada quincena del mes incluida en el rango. Solo se descuentan registros marcados como publicados.</p>';
   const summary = summarizeIndicators(records, today);
   const cards = [
     ['Registrados',summary.total], ['Publicados',summary.published], ['Programados',summary.planned],

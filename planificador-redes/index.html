@@ -405,22 +405,26 @@ $('goalsForm').addEventListener('submit',async event=>{
 });
 
 const storyNetworks = new Map();
-function storyNetworkButtons(brand, selected) {
-  return '<div class="actions" role="group" aria-label="Red social de historias de '+esc(brand)+'">'+
+const programmingNetworks = new Map();
+function reportNetworkButtons(brand, selected, scope = 'stories') {
+  const label = scope==='programming'?'programaciones':'historias';
+  return '<div class="actions" role="group" aria-label="Red social de '+label+' de '+esc(brand)+'">'+
     ['all',...PLATFORMS].map(network=>{
-      const active = network === selected;
-      return '<button type="button" class="btn'+(active?' primary':'')+'" data-story-brand="'+esc(brand)+
-        '" data-story-network="'+esc(network)+'" aria-pressed="'+active+'">'+esc(network==='all'?'Todas':network)+'</button>';
+      const active = network===selected;
+      return '<button type="button" class="btn'+(active?' primary':'')+'" data-report-scope="'+scope+
+        '" data-report-brand="'+esc(brand)+'" data-report-network="'+esc(network)+
+        '" aria-pressed="'+active+'">'+esc(network==='all'?'Todas':network)+'</button>';
     }).join('')+'</div>';
 }
 $('publicationGoals').addEventListener('click',event=>{
-  const button = event.target.closest('button[data-story-network]');
+  const button = event.target.closest('button[data-report-network]');
   if (!button) return;
-  const {storyBrand,storyNetwork} = button.dataset;
-  if (!BRANDS.includes(storyBrand) || !['all',...PLATFORMS].includes(storyNetwork)) return;
-  storyNetworks.set(storyBrand,storyNetwork);
+  const {reportScope,reportBrand,reportNetwork} = button.dataset;
+  const selections = reportScope==='programming' ? programmingNetworks : storyNetworks;
+  selections.set(reportBrand,reportNetwork);
   renderIndicators();
-  $('publicationGoals').querySelector('button[data-story-brand="'+storyBrand+'"][data-story-network="'+storyNetwork+'"]')?.focus({preventScroll:true});
+  $('publicationGoals').querySelector('button[data-report-scope="'+reportScope+'"][data-report-brand="'+reportBrand+
+    '"][data-report-network="'+reportNetwork+'"]')?.focus({preventScroll:true});
 });
 
 function renderIndicators() {
@@ -450,7 +454,14 @@ function renderIndicators() {
       const includesStories = ['all','Historia'].includes(filtersForReport.type);
       const networks = networksFor(filtersForReport.platform);
       const daily = includesStories ? dailyStoryBreakdown(scheduled,from,until,targets,networks) : null;
-      const rows = publicationGoals(scheduled,units,filtersForReport.type,targets,networks,daily);
+      const programmingNetwork = programmingNetworks.get(brand) ?? filtersForReport.platform;
+      const selectedNetworks = networksFor(programmingNetwork);
+      const visibleRecords = programmingNetwork===filtersForReport.platform ? scheduled :
+        items.filter(item=>item.date>=from && item.date<=until &&
+          match(item,{...filtersForReport,brand,platform:programmingNetwork,status:'all'}));
+      const visibleDays = visibleRecords===scheduled ? daily :
+        includesStories ? dailyStoryBreakdown(visibleRecords,from,until,targets,selectedNetworks) : null;
+      const rows = publicationGoals(visibleRecords,units,filtersForReport.type,targets,selectedNetworks,visibleDays);
       let detail = '';
       if (daily) {
         const network = storyNetworks.get(brand) ?? filtersForReport.platform;
@@ -462,10 +473,12 @@ function renderIndicators() {
         const detailTotals = dailyStoryTotals(storyDays);
         detail = '<p class="subtitle" style="margin:0 0 12px">'+esc(detailTotals[4])+'.</p>'+
           indicatorTable('Historias por día · '+brand,['Fecha','Meta diaria','Programadas','Faltan programar','Cumplimiento'],
-            storyDays.rows,storyNetworkButtons(brand,network),detailTotals);
+            storyDays.rows,reportNetworkButtons(brand,network),detailTotals);
       }
-      return indicatorTable('Cuánto falta programar · '+brand,
-        ['Formato','Meta','Programados','Faltan programar','Avance'],rows)+detail;
+      const isPyc = brand==='PYC';
+      return indicatorTable(isPyc?'Programaciones PYC':'Cuánto falta programar · '+brand,
+        ['Formato','Meta','Programados','Faltan programar','Avance'],rows,
+        isPyc?reportNetworkButtons(brand,programmingNetwork,'programming'):'')+detail;
     }).join('')+'<p class="subtitle" style="margin:0 0 16px">El avance se calcula por red. Los excedentes no cubren faltantes de otras redes ni de otras fechas en historias. Las metas de posts y reels se prorratean en quincenas parciales.</p>';
   } else {
     $('publicationGoals').textContent = 'Metas no disponibles. Abre Configuración y pulsa Recargar metas.';

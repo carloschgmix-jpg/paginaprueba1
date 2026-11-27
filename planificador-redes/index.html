@@ -64,9 +64,7 @@
 </section>
 <p class="hidden" id="indicatorError" role="status"></p>
 <div id="indicatorReport">
-<div id="publicationGoals"></div><div class="cards" id="indicatorCards"></div>
-<div id="indicatorTables"></div>
-</div>
+<div id="publicationGoals"></div></div>
 </section>
 <section class="view" id="view-settings" aria-labelledby="goalsTitle">
 <div class="panel"><div class="panelhead"><h2 id="goalsTitle">Metas por negocio y red social</h2></div>
@@ -230,15 +228,6 @@ const updatedOwners=old?owners.map(owner=>owner.id===id?{...owner,name,role,bran
 const updatedItems=old&&old.name!==name?items.map(item=>item.owner===old.name?{...item,owner:name}:item):items;
 if(!await saveShared(updatedItems,updatedOwners))return;render();closeOwner();showToast('Responsable guardado')});$('ownersBody').addEventListener('click',async e=>{let edit=e.target.closest('[data-owner-edit]'),del=e.target.closest('[data-owner-delete]');if(edit){editOwner(edit.dataset.ownerEdit);return}if(del){let o=owners.find(x=>x.id===del.dataset.ownerDelete);if(!o)return;let n=items.filter(i=>i.owner===o.name).length;if(!confirm(`¿Eliminar a ${o.name}? ${n} publicación(es) quedarán sin responsable. `))return;const updatedItems=items.map(item=>item.owner===o.name?{...item,owner:''}:item);
 if(!await saveShared(updatedItems,owners.filter(owner=>owner.id!==o.id)))return;showToast('Responsable eliminado')}});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeOwner()});
-function summarizeIndicators(records) {
-  const summary = {total:records.length,draft:0,planned:0,unassigned:0};
-  for (const record of records) {
-    summary[record.status]++;
-    if (!record.owner?.trim()) summary.unassigned++;
-  }
-  return summary;
-}
-
 function indicatorTable(title, columns, rows, controls = '', totals = null) {
   const headings = columns.map(column => '<th scope="col">'+esc(column)+'</th>').join('');
   const body = rows.map(row => '<tr><th scope="row">'+esc(row[0])+'</th>'+row.slice(1).map(value=>'<td>'+esc(value)+'</td>').join('')+'</tr>').join('');
@@ -442,8 +431,6 @@ function renderIndicators() {
   if (invalid) return;
 
   const filtersForReport = filters();
-  const records = filtersForReport.status === 'empty' ? [] :
-    items.filter(item => item.date >= from && item.date <= until && match(item, filtersForReport));
   if (goalsState) {
     const units = fortnightUnits(from,until);
     const businesses = BRANDS.filter(brand=>filtersForReport.brand==='all'||filtersForReport.brand===brand);
@@ -475,39 +462,14 @@ function renderIndicators() {
           indicatorTable('Historias por día · '+brand,['Fecha','Meta diaria','Programadas','Faltan programar','Cumplimiento'],
             storyDays.rows,reportNetworkButtons(brand,network),detailTotals);
       }
-      const isPyc = brand==='PYC';
-      return indicatorTable(isPyc?'Programaciones PYC':'Cuánto falta programar · '+brand,
+      return indicatorTable('Programaciones '+brand,
         ['Formato','Meta','Programados','Faltan programar','Avance'],rows,
-        isPyc?reportNetworkButtons(brand,programmingNetwork,'programming'):'')+detail;
+        reportNetworkButtons(brand,programmingNetwork,'programming'))+detail;
     }).join('')+'<p class="subtitle" style="margin:0 0 16px">El avance se calcula por red. Los excedentes no cubren faltantes de otras redes ni de otras fechas en historias. Las metas de posts y reels se prorratean en quincenas parciales.</p>';
   } else {
     $('publicationGoals').textContent = 'Metas no disponibles. Abre Configuración y pulsa Recargar metas.';
   }
-  const summary = summarizeIndicators(records);
-  const cards = [
-    ['Registrados',summary.total], ['Programados',summary.planned],
-    ['Pendientes de aprobación',summary.draft], ['Sin responsable',summary.unassigned]
-  ];
-  $('indicatorCards').innerHTML = cards.map(([label,value,note]) =>
-    '<div class="stat"><div class="lbl">'+esc(label)+'</div><div class="num">'+esc(value)+'</div>'+
-    (note ? '<div class="sub">'+esc(note)+'</div>' : '')+'</div>').join('');
-  const groups = [
-    ['Por negocio','Negocio',item=>item.brand],
-    ['Por mes','Mes',item=>item.date.slice(0,7)]
-  ];
-  $('indicatorTables').innerHTML = groups.map(([title,label,key]) => {
-    const grouped = new Map();
-    for (const item of records) {
-      const group = key(item);
-      if (!grouped.has(group)) grouped.set(group, []);
-      grouped.get(group).push(item);
-    }
-    const rows = [...grouped.entries()].sort(([a],[b])=>a.localeCompare(b,'es')).map(([name,entries])=>{
-      const counts = summarizeIndicators(entries);
-      return [label === 'Mes' ? name.split('-').reverse().join('/') : name,counts.total,counts.planned,counts.draft,counts.unassigned];
-    });
-    return indicatorTable(title,[label,'Total','Programados','Pendientes de aprobación','Sin responsable'],rows);
-  }).join('');
+
 }
 
 for (const id of ['indicatorFrom','indicatorUntil']) $(id).addEventListener('change',renderIndicators);
